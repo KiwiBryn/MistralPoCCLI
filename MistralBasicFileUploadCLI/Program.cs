@@ -36,7 +36,7 @@ var jsonSerializerOptions = new JsonSerializerOptions()
    UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
 };
 
-Console.Write("Enter command (upload, list, url, delete) or path to file to upload (Enter to exit): ");
+Console.Write("Enter command (upload, list, url, delete, ocr) or path to file to upload (Enter to exit): ");
 var operation = Console.ReadLine()?.Trim().Trim('"');
 
 while (!string.IsNullOrWhiteSpace(operation))
@@ -134,6 +134,35 @@ while (!string.IsNullOrWhiteSpace(operation))
                }
             }
             break;
+         case "ocr":
+            {
+               Console.Write("Enter file ID to OCR (Enter to cancel): ");
+               var fileId = Console.ReadLine()?.Trim().Trim('"');
+               if (string.IsNullOrWhiteSpace(fileId))
+               {
+                  break;
+               }
+
+               Console.WriteLine($"Running OCR on {fileId} with model '{settings.OcrModelName}'...");
+               var ocr = await OcrFileAsync(httpClient, fileId, settings.OcrModelName, jsonSerializerOptions);
+               if (ocr is not null)
+               {
+                  Console.WriteLine();
+                  Console.WriteLine($"OCR complete - model: {ocr.Model}, pages: {ocr.Pages.Count}");
+                  if (ocr.UsageInfo is not null)
+                  {
+                     Console.WriteLine($"  Doc size: {ocr.UsageInfo.DocSizeBytes:N0} bytes, processed: {ocr.UsageInfo.PagesProcessed} page(s)");
+                  }
+
+                  foreach (var page in ocr.Pages)
+                  {
+                     Console.WriteLine();
+                     Console.WriteLine($"---- Page {page.Index} ----");
+                     Console.WriteLine(page.Markdown);
+                  }
+               }
+            }
+            break;
          default:
             Console.WriteLine("Unknown operation. Defaulting to full workflow (upload, list, url).");
             break;
@@ -157,7 +186,7 @@ while (!string.IsNullOrWhiteSpace(operation))
    }
 
    Console.WriteLine();
-   Console.Write("Enter command (upload, list, url, delete) or path to file to upload (Enter to exit): ");
+   Console.Write("Enter command (upload, list, url, delete, ocr) or path to file to upload (Enter to exit): ");
    operation = Console.ReadLine()?.Trim().Trim('"');
 }
 
@@ -221,4 +250,31 @@ static async Task<FileDeleteResponse?> DeleteFileAsync(
    response.EnsureSuccessStatusCode();
 
    return await response.Content.ReadFromJsonAsync<FileDeleteResponse>(options, ct);
+}
+
+// ---- Local helper: POST /v1/ocr ----
+static async Task<OcrResponse?> OcrFileAsync(
+   HttpClient http,
+   string fileId,
+   string ocrModel,
+   JsonSerializerOptions options,
+   CancellationToken ct = default)
+{
+   var signed = await GetSignedUrlAsync(http, fileId, options, ct);
+   if (signed is null)
+   {
+      return null;
+   }
+
+   var request = new OcrRequest
+   {
+      Model = ocrModel,
+      Document = OcrDocument.FromUrl(signed.Url),
+      // IncludeImageBase64 = true,   // uncomment if you want embedded image bytes back
+   };
+
+   using var response = await http.PostAsJsonAsync("ocr", request, options, ct);
+   response.EnsureSuccessStatusCode();
+
+   return await response.Content.ReadFromJsonAsync<OcrResponse>(options, ct);
 }
