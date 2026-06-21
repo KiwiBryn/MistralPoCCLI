@@ -1,7 +1,7 @@
 ﻿// Copyright(c) June 2026, devMobile Software
 //
 // This program demonstrates the Mistral Files API: multipart upload, list,
-// and signed-URL retrieval, all using strongly typed request/response models.
+// signed-URL retrieval, and delete, all using strongly typed request/response models.
 //
 using MistralBasicFileUploadCLI.Models;
 
@@ -36,74 +36,107 @@ var jsonSerializerOptions = new JsonSerializerOptions()
    UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
 };
 
-Console.Write("Enter path to file to upload (Enter to exit): ");
-var filePath = Console.ReadLine()?.Trim().Trim('"');
+Console.Write("Enter command (upload, list, url, delete) or path to file to upload (Enter to exit): ");
+var operation = Console.ReadLine()?.Trim().Trim('"');
 
-
-while (!string.IsNullOrWhiteSpace(filePath))
+while (!string.IsNullOrWhiteSpace(operation))
 {
-   if (!File.Exists(filePath))
-   {
-      Console.WriteLine($"File not found: {filePath}");
-      Console.WriteLine();
-      Console.Write("Enter path to file to upload (Enter to exit): ");
-      filePath = Console.ReadLine()?.Trim().Trim('"');
-      continue;
-   }
-
    try
    {
-      // ----- 1. Upload (multipart/form-data) -----
-      await using var fileStream = File.OpenRead(filePath);
-      var uploadRequest = new FileUploadRequest
+      switch (operation?.ToLower())
       {
-         Content  = fileStream,
-         FileName = Path.GetFileName(filePath),
-         Purpose  = FilePurpose.Ocr,   // change to FineTune / Batch as needed
-      };
+         case "upload":
+            {
+               Console.Write("Enter path to file to upload (Enter to exit): ");
+               var filePath = Console.ReadLine()?.Trim().Trim('"');
+               if (!File.Exists(filePath))
+               {
+                  Console.WriteLine($"File not found: {filePath}");
+                  Console.WriteLine();
+                  Console.Write("Enter path to file to upload (Enter to exit): ");
+                  filePath = Console.ReadLine()?.Trim().Trim('"');
+                  continue;
+               }
 
-      var uploaded = await UploadFileAsync(httpClient, uploadRequest, jsonSerializerOptions);
-      if (uploaded is null)
-      {
-         Console.WriteLine("Upload returned no payload.");
-         continue;
-      }
+               await using var fileStream = File.OpenRead(filePath);
+               var uploadRequest = new FileUploadRequest
+               {
+                  Content = fileStream,
+                  FileName = Path.GetFileName(filePath),
+                  Purpose = FilePurpose.Ocr,   // change to FineTune / Batch as needed
+               };
 
-      Console.WriteLine();
-      Console.WriteLine($"Uploaded:  {uploaded.Id}");
-      Console.WriteLine($"  Name:    {uploaded.Filename}");
-      Console.WriteLine($"  Size:    {uploaded.SizeBytes:N0} bytes");
-      Console.WriteLine($"  Purpose: {uploaded.Purpose}");
-      Console.WriteLine($"  Created: {DateTimeOffset.FromUnixTimeSeconds(uploaded.CreatedAt):u}");
+               var uploaded = await UploadFileAsync(httpClient, uploadRequest, jsonSerializerOptions);
+               if (uploaded is null)
+               {
+                  Console.WriteLine("Upload returned no payload.");
+                  continue;
+               }
 
-      // ----- 2. List all files -----
-      using var listResponse = await httpClient.GetAsync("files");
-      listResponse.EnsureSuccessStatusCode();
+               Console.WriteLine();
+               Console.WriteLine($"Uploaded:  {uploaded.Id}");
+               Console.WriteLine($"  Name:    {uploaded.Filename}");
+               Console.WriteLine($"  Size:    {uploaded.SizeBytes:N0} bytes");
+               Console.WriteLine($"  Purpose: {uploaded.Purpose}");
+               Console.WriteLine($"  Created: {DateTimeOffset.FromUnixTimeSeconds(uploaded.CreatedAt):u}");
+            }
+            break;
+         case "list":
+            {
+               Console.WriteLine("Listing files...");
+               var list = await ListFilesAsync(httpClient, jsonSerializerOptions);
+               if (list is not null)
+               {
+                  Console.WriteLine();
+                  Console.WriteLine($"Files on account ({list.Total ?? list.Data.Count}):");
+                  foreach (var f in list.Data)
+                  {
+                     Console.WriteLine($"  {f.Id}  {f.SizeBytes,12:N0}  {f.Purpose,-10}  {f.Filename}");
+                  }
+               }
+            }
+            break;
+         case "url":
+            {
+               Console.WriteLine("Enter file ID to retrieve signed URL (Enter to exit): ");
+               var fileId = Console.ReadLine()?.Trim().Trim('"');
+               if (string.IsNullOrWhiteSpace(fileId))
+               {
+                  break;
+               }
 
-      var list = await listResponse.Content.ReadFromJsonAsync<FileListResponse>(jsonSerializerOptions);
-      if (list is not null)
-      {
-         Console.WriteLine();
-         Console.WriteLine($"Files on account ({list.Total ?? list.Data.Count}):");
-         foreach (var f in list.Data)
-         {
-            Console.WriteLine($"  {f.Id}  {f.SizeBytes,12:N0}  {f.Purpose,-10}  {f.Filename}");
-         }
-      }
+               var signed = await GetSignedUrlAsync(httpClient, fileId, jsonSerializerOptions);
+               if (signed is not null)
+               {
+                  Console.WriteLine();
+                  Console.WriteLine($"Signed URL: {signed.Url}");
+                  if (signed.ExpiresAt is long exp)
+                  {
+                     Console.WriteLine($"  Expires:  {DateTimeOffset.FromUnixTimeSeconds(exp):u}");
+                  }
+               }
+            }
+            break;
+         case "delete":
+            {
+               Console.WriteLine("Enter file ID to delete (Enter to exit): ");
+               var fileId = Console.ReadLine()?.Trim().Trim('"');
+               if (string.IsNullOrWhiteSpace(fileId))
+               {
+                  break;
+               }
 
-      // ----- 3. Get a signed download URL for the file we just uploaded -----
-      using var urlResponse = await httpClient.GetAsync($"files/{uploaded.Id}/url");
-      urlResponse.EnsureSuccessStatusCode();
-
-      var signed = await urlResponse.Content.ReadFromJsonAsync<FileSignedUrlResponse>(jsonSerializerOptions);
-      if (signed is not null)
-      {
-         Console.WriteLine();
-         Console.WriteLine($"Signed URL: {signed.Url}");
-         if (signed.ExpiresAt is long exp)
-         {
-            Console.WriteLine($"  Expires:  {DateTimeOffset.FromUnixTimeSeconds(exp):u}");
-         }
+               var deleted = await DeleteFileAsync(httpClient, fileId, jsonSerializerOptions);
+               if (deleted is not null)
+               {
+                  Console.WriteLine();
+                  Console.WriteLine($"File {deleted.Id} deleted: {deleted.Deleted}");
+               }
+            }
+            break;
+         default:
+            Console.WriteLine("Unknown operation. Defaulting to full workflow (upload, list, url).");
+            break;
       }
    }
    catch (HttpRequestException ex)
@@ -124,8 +157,8 @@ while (!string.IsNullOrWhiteSpace(filePath))
    }
 
    Console.WriteLine();
-   Console.Write("Enter path to file to upload (Enter to exit): ");
-   filePath = Console.ReadLine()?.Trim().Trim('"');
+   Console.Write("Enter command (upload, list, url, delete) or path to file to upload (Enter to exit): ");
+   operation = Console.ReadLine()?.Trim().Trim('"');
 }
 
 
@@ -150,4 +183,42 @@ static async Task<FileObject?> UploadFileAsync(
    response.EnsureSuccessStatusCode();
 
    return await response.Content.ReadFromJsonAsync<FileObject>(options, ct);
+}
+
+// ---- Local helper: GET /v1/files ----
+static async Task<FileListResponse?> ListFilesAsync(
+   HttpClient http,
+   JsonSerializerOptions options,
+   CancellationToken ct = default)
+{
+   using var response = await http.GetAsync("files", ct);
+   response.EnsureSuccessStatusCode();
+
+   return await response.Content.ReadFromJsonAsync<FileListResponse>(options, ct);
+}
+
+// ---- Local helper: GET /v1/files/{file_id}/url ----
+static async Task<FileSignedUrlResponse?> GetSignedUrlAsync(
+   HttpClient http,
+   string fileId,
+   JsonSerializerOptions options,
+   CancellationToken ct = default)
+{
+   using var response = await http.GetAsync($"files/{fileId}/url", ct);
+   response.EnsureSuccessStatusCode();
+
+   return await response.Content.ReadFromJsonAsync<FileSignedUrlResponse>(options, ct);
+}
+
+// ---- Local helper: DELETE /v1/files/{file_id} ----
+static async Task<FileDeleteResponse?> DeleteFileAsync(
+   HttpClient http,
+   string fileId,
+   JsonSerializerOptions options,
+   CancellationToken ct = default)
+{
+   using var response = await http.DeleteAsync($"files/{fileId}", ct);
+   response.EnsureSuccessStatusCode();
+
+   return await response.Content.ReadFromJsonAsync<FileDeleteResponse>(options, ct);
 }
