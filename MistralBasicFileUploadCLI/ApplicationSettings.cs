@@ -6,4 +6,6 @@ public class ApplicationSettings
    public string BaseUrl { get; set; } = string.Empty;
 
    public string ModelName { get; set; } = string.Empty;
+
+   public string OcrModelName { get; set; } = string.Empty;
 }
