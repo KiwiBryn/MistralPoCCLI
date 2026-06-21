@@ -149,3 +149,84 @@ public static class FilePurpose
    public const string Batch    = "batch";
    public const string Ocr      = "ocr";
 }
+
+// ============================================================================
+// OCR API - request/response models (POST /v1/ocr)
+// ============================================================================
+
+/// <summary>
+/// Request body for POST /v1/ocr. The 'document' field is required; the others
+/// fine-tune page selection and embedded-image extraction.
+/// </summary>
+public sealed class OcrRequest
+{
+   [JsonPropertyName("model")]                public required string Model { get; init; }
+   [JsonPropertyName("document")]             public required OcrDocument Document { get; init; }
+   [JsonPropertyName("id")]                   public string? Id { get; init; }                  // optional client-side correlation id
+   [JsonPropertyName("pages")]                public List<int>? Pages { get; init; }            // null = all pages
+   [JsonPropertyName("include_image_base64")] public bool? IncludeImageBase64 { get; init; }
+   [JsonPropertyName("image_limit")]          public int? ImageLimit { get; init; }
+   [JsonPropertyName("image_min_size")]       public int? ImageMinSize { get; init; }
+}
+
+/// <summary>
+/// The 'document' input - either a URL pointing at a PDF/document
+/// (use <see cref="FromUrl"/>) or an image URL (use <see cref="FromImageUrl"/>).
+/// Only the property matching <see cref="Type"/> should be set; the rest are
+/// dropped on the wire by the shared JsonSerializerOptions.
+/// </summary>
+public sealed class OcrDocument
+{
+   [JsonPropertyName("type")]          public required string Type { get; init; }            // "document_url" or "image_url"
+   [JsonPropertyName("document_url")]  public string? DocumentUrl { get; init; }
+   [JsonPropertyName("image_url")]     public string? ImageUrl { get; init; }
+   [JsonPropertyName("document_name")] public string? DocumentName { get; init; }
+
+   public static OcrDocument FromUrl(string url, string? name = null) =>
+      new() { Type = "document_url", DocumentUrl = url, DocumentName = name };
+
+   public static OcrDocument FromImageUrl(string url) =>
+      new() { Type = "image_url", ImageUrl = url };
+}
+
+/// <summary>
+/// Response from POST /v1/ocr - one entry in <see cref="Pages"/> per page processed.
+/// </summary>
+public sealed class OcrResponse
+{
+   [JsonPropertyName("pages")]               public required List<OcrPage> Pages { get; init; }
+   [JsonPropertyName("model")]               public string? Model { get; init; }
+   [JsonPropertyName("usage_info")]          public OcrUsageInfo? UsageInfo { get; init; }
+   [JsonPropertyName("document_annotation")] public string? DocumentAnnotation { get; init; }
+}
+
+public sealed class OcrPage
+{
+   [JsonPropertyName("index")]      public int Index { get; init; }
+   [JsonPropertyName("markdown")]   public required string Markdown { get; init; }
+   [JsonPropertyName("images")]     public List<OcrImage>? Images { get; init; }
+   [JsonPropertyName("dimensions")] public OcrPageDimensions? Dimensions { get; init; }
+}
+
+public sealed class OcrImage
+{
+   [JsonPropertyName("id")]             public required string Id { get; init; }
+   [JsonPropertyName("top_left_x")]     public int? TopLeftX { get; init; }
+   [JsonPropertyName("top_left_y")]     public int? TopLeftY { get; init; }
+   [JsonPropertyName("bottom_right_x")] public int? BottomRightX { get; init; }
+   [JsonPropertyName("bottom_right_y")] public int? BottomRightY { get; init; }
+   [JsonPropertyName("image_base64")]   public string? ImageBase64 { get; init; }
+}
+
+public sealed class OcrPageDimensions
+{
+   [JsonPropertyName("dpi")]    public int? Dpi { get; init; }
+   [JsonPropertyName("height")] public int? Height { get; init; }
+   [JsonPropertyName("width")]  public int? Width { get; init; }
+}
+
+public sealed class OcrUsageInfo
+{
+   [JsonPropertyName("pages_processed")] public int? PagesProcessed { get; init; }
+   [JsonPropertyName("doc_size_bytes")]  public long? DocSizeBytes { get; init; }
+}
