@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="MistralBasicFileUploadCLI/MistralBasicFileUploadCLI.csproj" Id="51cac800-a928-4a26-8a76-143671a1bcb5" />
   <Project Path="MistralBasicJsonDocCLI/MistralBasicJsonDocCLI.csproj" />
   <Project Path="MistralBasicTypedCLI/MistralBasicTypedCLI.csproj" Id="7d2af457-f691-4391-b307-e0c5023111c3" />
 </Solution>
