@@ -1,6 +1,13 @@
-﻿namespace devMobile.Mistral.Models;
+﻿// Copyright(c) June 2026, devMobile Software
+// Generated from https://docs.mistral.ai/api/endpoint/files
+//
+namespace devMobile.Mistral.Models;
 
 using System.Text.Json.Serialization;
+
+// ---------------------------------------------------------------------------
+// Shared schema
+// ---------------------------------------------------------------------------
 
 public sealed class FileSchema
 {
@@ -51,10 +58,12 @@ public sealed class FileSchema
 // ---------------------------------------------------------------------------
 // List files  GET /v1/files
 // ---------------------------------------------------------------------------
+
 public sealed class FileListResponse
 {
    [JsonPropertyName("object")]
    public required string Object { get; init; }
+
    [JsonPropertyName("data")]
    public required List<FileSchema> Data { get; init; }
 
@@ -76,6 +85,7 @@ public sealed class FileUploadRequest
 
    [JsonPropertyName("visibility")]
    public FileVisibility? Visibility { get; init; }
+
    [JsonPropertyName("expiry")]
    public int? Expiry { get; init; }
 }
@@ -99,7 +109,7 @@ public sealed class FileDeleteResponse
    public required string Id { get; init; }
 
    [JsonPropertyName("object")]
-   public required string Object { get; init; } // "file"
+   public required string Object { get; init; }
 
    [JsonPropertyName("deleted")]
    public required bool Deleted { get; init; }
@@ -176,19 +186,5 @@ public enum FileVisibility
    [JsonStringEnumMemberName("user")]
    User
 }
-/*
-[JsonSerializable(typeof(FileListResponse))]
-[JsonSerializable(typeof(FileSchema))]
-[JsonSerializable(typeof(FileUploadRequest))]
-[JsonSerializable(typeof(UploadFileContent))]
-[JsonSerializable(typeof(FileDeleteResponse))]
-[JsonSerializable(typeof(FileSignedUrlResponse))]
-[JsonSerializable(typeof(FilePurpose))]
-[JsonSerializable(typeof(FileSampleType))]
-[JsonSerializable(typeof(FileSource))]
-[JsonSerializable(typeof(FileVisibility))]
-public partial class MistralFilesJsonContext : JsonSerializerContext
-{
-}
-*/
+
 

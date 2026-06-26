@@ -128,7 +128,7 @@ public sealed class FileSignedUrlResponse
 // Enums
 // ---------------------------------------------------------------------------
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter<FilePurpose>))]
 public enum FilePurpose
 {
    [JsonStringEnumMemberName("fine-tune")]
@@ -141,7 +141,7 @@ public enum FilePurpose
    Ocr
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter<SampleType>))]
 public enum SampleType
 {
    [JsonStringEnumMemberName("pretrain")]
@@ -163,7 +163,7 @@ public enum SampleType
    OcrInput
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter<FileSource>))]
 public enum FileSource
 {
    [JsonStringEnumMemberName("upload")]
@@ -176,7 +176,7 @@ public enum FileSource
    Mistral
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter<FileVisibility>))]
 public enum FileVisibility
 {
    [JsonStringEnumMemberName("workspace")]
@@ -184,4 +184,22 @@ public enum FileVisibility
 
    [JsonStringEnumMemberName("user")]
    User
+}
+
+// ---------------------------------------------------------------------------
+// Source-generated serialisation context
+// ---------------------------------------------------------------------------
+
+[JsonSerializable(typeof(FileListResponse))]
+[JsonSerializable(typeof(FileSchema))]
+[JsonSerializable(typeof(FileUploadRequest))]
+[JsonSerializable(typeof(UploadFileContent))]
+[JsonSerializable(typeof(FileDeleteResponse))]
+[JsonSerializable(typeof(FileSignedUrlResponse))]
+[JsonSerializable(typeof(FilePurpose))]
+[JsonSerializable(typeof(SampleType))]
+[JsonSerializable(typeof(FileSource))]
+[JsonSerializable(typeof(FileVisibility))]
+public partial class MistralFilesJsonContext : JsonSerializerContext
+{
 }
