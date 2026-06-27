@@ -1,6 +1,6 @@
 ﻿// Copyright(c) June 2026, devMobile Software
 //
-// This program demonstrates the Mistral Files API: multipart upload, list,
+// This program is nasty, it demonstrates the Mistral Files API: multipart upload, list,
 // signed-URL retrieval, and delete, all using strongly typed request/response models.
 //
 using devMobile.Mistral.Models;
@@ -105,7 +105,8 @@ while (!string.IsNullOrWhiteSpace(operation))
                   Model = settings.ModelName,
                   Messages =
                   [
-                     UserMessage.FromParts(new DocumentUrlPart { DocumentName = "Program.cs", DocumentUrl = signed.Url },new TextPart{ Text = "Summarise this document in three concise bullet points." })
+                     //UserMessage.FromParts(new DocumentUrlPart { DocumentName = "Program.cs", DocumentUrl = signed.Url },new TextPart{ Text = "Summarise this document in three concise bullet points." })
+                     UserMessage.FromText($"Summarise the document at {signed.Url} in three concise bullet points.")
                   ],
                };
 

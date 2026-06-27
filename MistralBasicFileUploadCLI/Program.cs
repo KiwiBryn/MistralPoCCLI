@@ -1,10 +1,9 @@
 ﻿// Copyright(c) June 2026, devMobile Software
 //
-// This program demonstrates the Mistral Files API: multipart upload, list,
+// This program is horrible, it demonstrates the Mistral Files API: multipart upload, list,
 // signed-URL retrieval, and delete, all using strongly typed request/response models.
 //
 using MistralBasicFileUploadCLI.Models;
-
 
 IConfiguration configuration = new ConfigurationBuilder()
    .SetBasePath(AppContext.BaseDirectory)

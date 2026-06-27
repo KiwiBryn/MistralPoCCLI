@@ -1,6 +1,6 @@
 ﻿// Copyright(c) June 2026, devMobile Software
 //
-// This program demonstrates how to call the Mistral API using HttpClient and System.Text.Json
+// This program is horrible, it demonstrates how to call the Mistral API using HttpClient and System.Text.Json
 // 
 IConfiguration configuration = new ConfigurationBuilder()
    .SetBasePath(AppContext.BaseDirectory)

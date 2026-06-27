@@ -32,8 +32,8 @@ public sealed class FileSchema
    [JsonPropertyName("purpose")]
    public required FilePurpose Purpose { get; init; }
 
-   [JsonPropertyName("sample_type")]
-   public required SampleType SampleType { get; init; }
+   //[JsonPropertyName("sample_type")]
+   //public required SampleType SampleType { get; init; }
 
    [JsonPropertyName("source")]
    public required FileSource Source { get; init; }

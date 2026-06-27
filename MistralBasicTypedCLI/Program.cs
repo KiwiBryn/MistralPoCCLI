@@ -1,8 +1,9 @@
 ﻿// Copyright(c) June 2026, devMobile Software
 //
-// This program demonstrates how to call the Mistral API using HttpClient and strongly typed request & response messages
+// This program is horrible, it demonstrates how to call the Mistral API using HttpClient and strongly typed request & response messages
 // 
 using MistralBasicTypedCLI.Models;
+
 
 IConfiguration configuration = new ConfigurationBuilder()
    .SetBasePath(AppContext.BaseDirectory)
@@ -49,6 +50,8 @@ while (!string.IsNullOrWhiteSpace(content))
 
    try
    {
+      string Text = JsonSerializer.Serialize(request, jsonSerializerOptions);
+
       using var httpResponse = await httpClient.PostAsJsonAsync("chat/completions", request, jsonSerializerOptions);
       httpResponse.EnsureSuccessStatusCode();
 

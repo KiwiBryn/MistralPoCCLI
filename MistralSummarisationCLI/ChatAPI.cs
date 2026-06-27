@@ -1,6 +1,5 @@
 ﻿namespace devMobile.Mistral.Models;
 
-using devMobile.Mistral.Models1;
 using System.Text.Json.Serialization;
 
 // ---------------------------------------------------------------------------
