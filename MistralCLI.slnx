@@ -16,5 +16,5 @@
   <Project Path="MistralBasicTypedCLI/MistralBasicTypedCLI.csproj" Id="7d2af457-f691-4391-b307-e0c5023111c3" />
   <Project Path="MistralModelsCLI/MistralModelsCLI.csproj" />
   <Project Path="MistralSummarisationCLI/MistralSummarisationCLI.csproj" Id="7f46227f-9e27-4cc6-a47e-b30e28741745" />
-  <Project Path="MystralStreamingTyped/MistralStreamingTyped.csproj" Id="a5032a5f-4a9a-4463-8c98-6743d11343ca" />
+  <Project Path="MistralStreamingTyped/MistralStreamingTyped.csproj" Id="a5032a5f-4a9a-4463-8c98-6743d11343ca" />
 </Solution>
