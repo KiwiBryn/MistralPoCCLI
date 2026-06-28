@@ -55,5 +55,34 @@ public sealed class MessageDelta
     public JsonNode? Content { get; set; }
 
     [JsonPropertyName("tool_calls")]
-    public ToolCall[]? ToolCalls { get; set; }
+    public ToolCallDelta[]? ToolCalls { get; set; }
+}
+
+// Streaming tool-call fragment. Multi-chunk tool calls are reassembled by Index;
+// Id/Function.Name typically arrive on the first fragment, with Function.Arguments
+// streamed across subsequent fragments and concatenated by the consumer.
+public sealed class ToolCallDelta
+{
+    [JsonPropertyName("index")]
+    public int? Index { get; set; }
+
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("function")]
+    public FunctionCallDelta? Function { get; set; }
+}
+
+public sealed class FunctionCallDelta
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    // Partial JSON-encoded arguments fragment; concatenate across deltas with the
+    // same Index to reconstruct the full arguments string.
+    [JsonPropertyName("arguments")]
+    public string? Arguments { get; set; }
 }

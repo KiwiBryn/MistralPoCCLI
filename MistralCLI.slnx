@@ -1,5 +1,14 @@
 <Solution>
-  <Project Path="ChatCompletionsAPI/ChatCompletionsAPI.csproj" Id="21fcf91a-db58-4dfe-997d-ba9a88d25aeb" />
+  <Folder Name="/Backup/">
+    <File Path="ChatCompletionClient/Program.cs" />
+  </Folder>
+  <Folder Name="/Clients/">
+    <Project Path="ChatCompletionClient/ChatCompletionClient.csproj" Id="d69bf9b9-f06d-4174-a15e-6832c42d3322" />
+    <Project Path="FilesClient/FilesClient.csproj" Id="a1d755a1-cdf9-4313-9568-8291f695cda8" />
+    <Project Path="FIMCompletionClient/FIMCompletionClient.csproj" Id="a6089a80-2261-4321-b4e7-cd90df5e2bd6" />
+    <Project Path="MistralClient/MistralClient.csproj" Id="e672af2d-e8d5-4a04-b4c5-4dcdb1585835" />
+    <Project Path="ModelsClient/ModelsClient.csproj" Id="b5701444-77c4-4b97-bda2-acde8ca76a56" />
+  </Folder>
   <Project Path="MistralBasicFieldExtractionCLI/MistralBasicFieldExtractionCLI.csproj" Id="76d5b08c-73ae-4b9f-b118-10e157d28712" />
   <Project Path="MistralBasicFileUploadCLI/MistralBasicFileUploadCLI.csproj" />
   <Project Path="MistralBasicJsonDocCLI/MistralBasicJsonDocCLI.csproj" />
@@ -7,5 +16,5 @@
   <Project Path="MistralBasicTypedCLI/MistralBasicTypedCLI.csproj" Id="7d2af457-f691-4391-b307-e0c5023111c3" />
   <Project Path="MistralModelsCLI/MistralModelsCLI.csproj" />
   <Project Path="MistralSummarisationCLI/MistralSummarisationCLI.csproj" Id="7f46227f-9e27-4cc6-a47e-b30e28741745" />
-  <Project Path="MystralStreamingTyped/MystralStreamingTyped.csproj" Id="a5032a5f-4a9a-4463-8c98-6743d11343ca" />
+  <Project Path="MystralStreamingTyped/MistralStreamingTyped.csproj" Id="a5032a5f-4a9a-4463-8c98-6743d11343ca" />
 </Solution>

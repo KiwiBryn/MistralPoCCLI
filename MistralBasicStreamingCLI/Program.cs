@@ -13,6 +13,9 @@ IConfiguration configuration = new ConfigurationBuilder()
 
 var settings = configuration.GetSection(nameof(ApplicationSettings)).Get<ApplicationSettings>() ?? throw new InvalidOperationException("Failed to load application settings");
 
+ArgumentException.ThrowIfNullOrWhiteSpace(settings.ApiKey, nameof(settings.ApiKey));
+ArgumentException.ThrowIfNullOrWhiteSpace(settings.BaseUrl, nameof(settings.BaseUrl));
+ArgumentException.ThrowIfNullOrWhiteSpace(settings.ModelName, nameof(settings.ModelName));
 
 Console.WriteLine("################");
 Console.WriteLine("   ##      ##   ");
@@ -32,7 +35,20 @@ using HttpClient httpClient = new()
       Accept = { new MediaTypeWithQualityHeaderValue("text/event-stream") },
       Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey)
    },
-   BaseAddress = new Uri(settings.BaseUrl)
+   BaseAddress = new Uri(settings.BaseUrl),
+   // SSE responses are long-lived; rely on the CancellationToken (Ctrl+C) instead of a wall-clock timeout.
+   Timeout = Timeout.InfiniteTimeSpan,
+};
+
+// Ctrl+C cancels the current request and returns to the prompt; second Ctrl+C exits the process.
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+   if (!cts.IsCancellationRequested)
+   {
+      e.Cancel = true;
+      cts.Cancel();
+   }
 };
 
 var jsonSerializerOptions = new JsonSerializerOptions()
@@ -45,11 +61,12 @@ var jsonSerializerOptions = new JsonSerializerOptions()
    UnmappedMemberHandling  = JsonUnmappedMemberHandling.Skip,
 };
 
-Console.Write("Enter chat message: ");
-var content = Console.ReadLine();
-
-while (!string.IsNullOrWhiteSpace(content))
+while (!cts.IsCancellationRequested)
 {
+   Console.Write("Enter chat message: ");
+   var content = Console.ReadLine();
+   if (string.IsNullOrWhiteSpace(content)) break;
+
    var request = new ChatStreamingCompletionRequest
    {
       Model = settings.ModelName,
@@ -67,17 +84,22 @@ while (!string.IsNullOrWhiteSpace(content))
          Content = JsonContent.Create(request, options: jsonSerializerOptions)
       };
 
-      using var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
-      httpResponse.EnsureSuccessStatusCode();
+      using var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+      if (!httpResponse.IsSuccessStatusCode)
+      {
+         var body = await httpResponse.Content.ReadAsStringAsync(cts.Token);
+         throw new HttpRequestException($"Mistral API {(int)httpResponse.StatusCode}: {body}", null, httpResponse.StatusCode);
+      }
 
-      await using var stream = await httpResponse.Content.ReadAsStreamAsync();
+      await using var stream = await httpResponse.Content.ReadAsStreamAsync(cts.Token);
       using var reader = new StreamReader(stream);
 
       TokenUsage? finalUsage = null;
       string? finishReason = null;
 
       string? line;
-      while ((line = await reader.ReadLineAsync()) is not null)
+      // Mistral emits single-line `data:` chunks, so per-line dispatch is sufficient (no multi-line SSE concatenation required).
+      while ((line = await reader.ReadLineAsync(cts.Token)) is not null)
       {
          // SSE framing: blank line separates events, lines without "data:" are ignored (e.g. ":" keep-alive comments, "event:" / "id:" / "retry:" fields).
          if (string.IsNullOrEmpty(line)) continue;
@@ -121,9 +143,16 @@ while (!string.IsNullOrWhiteSpace(content))
       }
       Console.WriteLine();
    }
+   catch (OperationCanceledException) when (cts.IsCancellationRequested)
+   {
+      Console.WriteLine();
+      Console.WriteLine("Request cancelled.");
+      // Reset the CTS so the next prompt iteration is cancellable again.
+      cts.TryReset();
+   }
    catch (HttpRequestException ex)
    {
-      Console.WriteLine($"Request failed: {(int?)ex.StatusCode} {ex.Message}");
+      Console.WriteLine($"Request failed: {(int?)ex.StatusCode ?? 0} {ex.Message}");
    }
    catch (TaskCanceledException)
    {
@@ -133,7 +162,12 @@ while (!string.IsNullOrWhiteSpace(content))
    {
       Console.WriteLine($"Failed to parse response: {ex.Message}");
    }
-
-   Console.Write("Enter chat message: ");
-   content = Console.ReadLine();
+   catch (IOException ex)
+   {
+      Console.WriteLine($"Stream error: {ex.Message}");
+   }
+   catch (Exception ex)
+   {
+      Console.WriteLine($"Unexpected error: {ex.GetType().Name}: {ex.Message}");
+   }
 }

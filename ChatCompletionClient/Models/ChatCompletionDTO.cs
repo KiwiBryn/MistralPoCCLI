@@ -99,7 +99,11 @@ public sealed class ToolMessage : ChatMessage
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(FunctionTool), "function")]
 [JsonDerivedType(typeof(WebSearchTool), "web_search")]
+[JsonDerivedType(typeof(WebSearchPremiumTool), "web_search_premium")]
 [JsonDerivedType(typeof(CodeInterpreterTool), "code_interpreter")]
+[JsonDerivedType(typeof(ImageGenerationTool), "image_generation")]
+[JsonDerivedType(typeof(DocumentLibraryTool), "document_library")]
+[JsonDerivedType(typeof(CustomConnector), "custom_connector")]
 public abstract class Tool { }
 
 public sealed class FunctionTool : Tool
@@ -129,7 +133,15 @@ public sealed class FunctionDefinition
 
 public sealed class WebSearchTool : Tool { }
 
+public sealed class WebSearchPremiumTool : Tool { }
+
 public sealed class CodeInterpreterTool : Tool { }
+
+public sealed class ImageGenerationTool : Tool { }
+
+public sealed class DocumentLibraryTool : Tool { }
+
+public sealed class CustomConnector : Tool { }
 
 // Tool calls returned in assistant messages
 public sealed class ToolCall
@@ -138,7 +150,7 @@ public sealed class ToolCall
     public required string Id { get; set; }
 
     [JsonPropertyName("type")]
-    public string Type => "function";
+    public string Type { get; set; } = "function";
 
     [JsonPropertyName("function")]
     public required FunctionCall Function { get; set; }
@@ -305,9 +317,10 @@ public sealed class ChatCompletionRequest
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public GuardrailConfig[]? Guardrails { get; set; }
 
+    // Spec: map<any> — values may be string, number, bool, object, etc.
     [JsonPropertyName("metadata")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Dictionary<string, string>? Metadata { get; set; }
+    public Dictionary<string, JsonNode?>? Metadata { get; set; }
 
     [JsonPropertyName("prediction")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -356,11 +369,11 @@ public sealed class ChatCompletionChoice
 public sealed class UsageInfo
 {
     [JsonPropertyName("prompt_tokens")]
-    public required int PromptTokens { get; set; }
+    public int PromptTokens { get; set; }
 
     [JsonPropertyName("completion_tokens")]
-    public required int CompletionTokens { get; set; }
+    public int CompletionTokens { get; set; }
 
     [JsonPropertyName("total_tokens")]
-    public required int TotalTokens { get; set; }
+    public int TotalTokens { get; set; }
 }
