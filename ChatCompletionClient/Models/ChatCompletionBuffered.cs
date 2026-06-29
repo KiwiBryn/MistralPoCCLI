@@ -26,7 +26,7 @@ public sealed class ChatCompletionResponse
    public required List<BufferedChoice> Choices { get; init; }
 
    [JsonPropertyName("usage")]
-   public required UsageInfo Usage { get; init; }
+   public UsageInfo? Usage { get; init; }
 }
 
 public sealed class BufferedChoice

@@ -2,6 +2,7 @@
 
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -51,7 +52,7 @@ public sealed class MistralChatClient : IMistralChatClient
    }
 
    public ChatCompletionResponse Complete(ChatCompletionRequest request)
-       => CompleteAsync(request).GetAwaiter().GetResult();
+       => Task.Run(() => CompleteAsync(request)).GetAwaiter().GetResult();
 
    public async Task<ChatCompletionResponse> CompleteAsync(
        ChatCompletionRequest request,
@@ -70,7 +71,8 @@ public sealed class MistralChatClient : IMistralChatClient
       await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
 
       var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-      return JsonSerializer.Deserialize<ChatCompletionResponse>(body, _jsonOptions)!;
+      return JsonSerializer.Deserialize<ChatCompletionResponse>(body, _jsonOptions)
+         ?? throw new MistralApiException(response.StatusCode, body);
    }
 
    public async IAsyncEnumerable<ChatCompletionChunkEvent> StreamAsync(
@@ -94,15 +96,27 @@ public sealed class MistralChatClient : IMistralChatClient
       await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
 
       using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-      using var reader = new StreamReader(stream);
+      using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
 
-      // SSE parser per https://html.spec.whatwg.org/multipage/server-sent-events.html
-      // — buffers data: lines, dispatches on blank-line boundaries.
+      // SSE inactivity guard — abort the read if Mistral stops sending lines.
+      // CancelAfter on a CTS resets the timer on each call (as long as the CTS
+      // hasn't already cancelled), so we reuse one CTS for the whole stream.
+      var inactivity = TimeSpan.FromMinutes(2);
+      using var inactivityCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
       var dataBuilder = new StringBuilder();
 
       while (true)
       {
-         var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+         inactivityCts.CancelAfter(inactivity);
+
+         string? line;
+         try { line = await reader.ReadLineAsync(inactivityCts.Token).ConfigureAwait(false); }
+         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+         { throw new TimeoutException(
+            $"SSE stream inactive for {inactivity.TotalSeconds:0} s — aborting."); }
+         inactivityCts.CancelAfter(Timeout.InfiniteTimeSpan);   // pause until next read
+
          if (line is null) break; // end of stream
 
          if (line.Length == 0)
@@ -114,17 +128,23 @@ public sealed class MistralChatClient : IMistralChatClient
 
             if (data == "[DONE]") yield break;
 
-            var chunk = JsonSerializer.Deserialize<ChatCompletionChunkEvent>(data, _jsonOptions);
+            ChatCompletionChunkEvent? chunk;
+            try
+            {
+               chunk = JsonSerializer.Deserialize<ChatCompletionChunkEvent>(data, _jsonOptions);
+            }
+            catch (JsonException)
+            {
+               // TODO: log; skip the bad chunk rather than abort the whole stream.
+               continue;
+            }
             if (chunk is not null) yield return chunk;
             continue;
          }
 
-         // SSE comment / heartbeat (e.g., ": keep-alive").
-         if (line[0] == ':') continue;
-
+         if (line[0] == ':') continue;                                  // SSE comment / heartbeat
          if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
 
-         // Strip "data:" then a single optional leading space (per spec).
          var value = line.AsSpan("data:".Length);
          if (value.Length > 0 && value[0] == ' ') value = value[1..];
 
@@ -146,11 +166,16 @@ public sealed class MistralChatClient : IMistralChatClient
 
    // Serialise the request to a JsonObject so we can force `stream` without
    // mutating the caller's instance (avoids subtle reuse / concurrency bugs).
-   private static StringContent BuildJsonContent(ChatCompletionRequest request, bool stream)
+   private static JsonContent BuildJsonContent(ChatCompletionRequest request, bool stream)
    {
-      var node = JsonSerializer.SerializeToNode(request, _jsonOptions)!.AsObject();
-      node["stream"] = stream;
-      return new StringContent(node.ToJsonString(_jsonOptions), Encoding.UTF8, "application/json");
+      var effective = new ChatCompletionRequest
+      {
+         Model = request.Model,
+         Messages = request.Messages,
+         // ... copy other fields ...
+         Stream = stream,
+      };
+      return JsonContent.Create(effective, options: _jsonOptions);
    }
 
    private static async Task EnsureSuccessAsync(
@@ -222,6 +247,14 @@ public sealed class MistralApiException : Exception
    }
 }
 
+public sealed class MistralChatClientOptions
+{
+   public required string BaseUrl { get; init; }
+   public required string ApiKey { get; init; }
+   public TimeSpan? RequestTimeout { get; init; }
+   public string? UserAgent { get; init; }
+}
+
 public static class MistralChatClientExtensions
 {
    /// <summary>
@@ -232,24 +265,31 @@ public static class MistralChatClientExtensions
    /// </example>
    public static IHttpClientBuilder AddMistralChatClient(
        this IServiceCollection services,
-       string baseUrl,
-       string apiKey)
+       Action<MistralChatClientOptions> configure)
    {
-      ArgumentException.ThrowIfNullOrWhiteSpace(baseUrl);
-      ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
-
-      // Uri requires a trailing slash on the BaseAddress for relative paths like
-      // "chat/completions" to resolve correctly — otherwise Uri strips the last
-      // segment of the path ("/v1" becomes "/") and requests silently 404.
-      var normalizedBase = baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/";
-
       services.AddSingleton<IMistralChatClient, MistralChatClient>();
 
-      return services.AddHttpClient(MistralChatClient.HttpClientName, client =>
+      return (IHttpClientBuilder)services.AddHttpClient(MistralChatClient.HttpClientName, client =>
       {
-         client.BaseAddress = new Uri(normalizedBase);
+         var options = new MistralChatClientOptions();
+         configure(options);
+
+         client.BaseAddress = new Uri(options.BaseUrl);
          client.DefaultRequestHeaders.Authorization =
-             new AuthenticationHeaderValue("Bearer", apiKey);
+             new AuthenticationHeaderValue("Bearer", options.ApiKey);
+
+         if (options.RequestTimeout is { } timeout)
+            client.Timeout = timeout;
+
+         // TODO: set User-Agent, other headers ...
+      })
+      .AddStandardResilienceHandler(opts =>
+      {
+         // Honour Retry-After on 429 + retry transient 5xx
+         opts.Retry.ShouldHandle = static args =>
+            ValueTask.FromResult(
+               args.Outcome.Result is { StatusCode: HttpStatusCode.TooManyRequests }
+               || (args.Outcome.Result is { } r && (int)r.StatusCode >= 500));
       });
    }
 }

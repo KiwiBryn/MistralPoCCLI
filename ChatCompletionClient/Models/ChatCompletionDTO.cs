@@ -103,20 +103,12 @@ public sealed class SystemMessage : ChatMessage
 
 public sealed class UserMessage : ChatMessage
 {
-   // string for text-only; array of UserContentPart for multi-modal
+   // string or List<UserContentPart>
    [JsonPropertyName("content")]
-   public required JsonNode Content { get; init; }
+   public required object Content { get; init; }
 
-   public static UserMessage FromText(string text) =>
-      new() { Content = JsonValue.Create(text)! };
-
-   public static UserMessage FromParts(params UserContentPart[] parts)
-   {
-      var arr = new JsonArray();
-      foreach (var part in parts)
-         arr.Add(JsonSerializer.SerializeToNode(part));
-      return new() { Content = arr };
-   }
+   public static UserMessage FromText(string text) => new() { Content = text };
+   public static UserMessage FromParts(params UserContentPart[] parts) => new() { Content = parts };
 }
 
 public sealed class AssistantMessage : ChatMessage
@@ -168,7 +160,16 @@ public sealed class DocumentUrlPart : UserContentPart
 public sealed class ImageUrlPart : UserContentPart
 {
    [JsonPropertyName("image_url")]
-   public required string ImageUrl { get; init; }
+   public required ImageUrlValue ImageUrl { get; init; }
+}
+
+public sealed class ImageUrlValue
+{
+   [JsonPropertyName("url")]
+   public required string Url { get; init; }
+
+   [JsonPropertyName("detail")]
+   public string? Detail { get; init; }   // "auto" | "low" | "high"
 }
 
 public sealed class ReferencePart : UserContentPart
