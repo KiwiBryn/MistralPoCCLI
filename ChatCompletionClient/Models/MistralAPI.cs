@@ -7,21 +7,23 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 // =============================================================================
 // CUSTOM CONVERTERS
 // =============================================================================
 
-public class ToolChoiceConverter : JsonConverter<ToolChoiceUnion>
+public sealed class ToolChoiceConverter : JsonConverter<ToolChoiceUnion>
 {
-   public override ToolChoiceUnion? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+   public override ToolChoiceUnion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
    {
       if (reader.TokenType == JsonTokenType.String)
          return new ToolChoiceUnion { StringValue = reader.GetString() };
 
-      using (JsonDocument doc = JsonDocument.ParseValue(ref reader))
+      if (reader.TokenType == JsonTokenType.StartObject)
       {
+         using var doc = JsonDocument.ParseValue(ref reader);
          if (doc.RootElement.TryGetProperty("type", out var typeProp) &&
              typeProp.GetString() == "function" &&
              doc.RootElement.TryGetProperty("function", out var funcProp))
@@ -32,8 +34,12 @@ public class ToolChoiceConverter : JsonConverter<ToolChoiceUnion>
                Function = funcProp.Deserialize<ToolChoiceFunction>(options)
             };
          }
+         throw new JsonException(
+            $"Unexpected JSON for {nameof(ToolChoiceUnion)}: object missing 'type'='function' and/or 'function' member.");
       }
-      return null;
+
+      throw new JsonException(
+         $"Unexpected JSON token for {nameof(ToolChoiceUnion)}: {reader.TokenType}.");
    }
 
    public override void Write(Utf8JsonWriter writer, ToolChoiceUnion value, JsonSerializerOptions options)
@@ -55,9 +61,9 @@ public class ToolChoiceConverter : JsonConverter<ToolChoiceUnion>
    }
 }
 
-public class StopConverter : JsonConverter<StopUnion>
+public sealed class StopConverter : JsonConverter<StopUnion>
 {
-   public override StopUnion? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+   public override StopUnion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
    {
       if (reader.TokenType == JsonTokenType.String)
          return new StopUnion { StringValue = reader.GetString() };
@@ -67,17 +73,19 @@ public class StopConverter : JsonConverter<StopUnion>
          var list = JsonSerializer.Deserialize<List<string>>(ref reader, options);
          return new StopUnion { StringListValue = list };
       }
-      return null;
+
+      throw new JsonException(
+         $"Unexpected JSON token for {nameof(StopUnion)}: {reader.TokenType}.");
    }
 
    public override void Write(Utf8JsonWriter writer, StopUnion value, JsonSerializerOptions options)
    {
-      if (value.StringValue != null)
+      if (value.StringValue is not null)
          writer.WriteStringValue(value.StringValue);
-      else if (value.StringListValue != null)
+      else if (value.StringListValue is not null)
          JsonSerializer.Serialize(writer, value.StringListValue, options);
       else
-         writer.WriteNullValue();
+         throw new JsonException($"{nameof(StopUnion)} has neither {nameof(StopUnion.StringValue)} nor {nameof(StopUnion.StringListValue)} set.");
    }
 }
 
@@ -106,24 +114,27 @@ public sealed class StopUnion
 }
 
 // =============================================================================
-// ENUMS
+// CONSTANTS (forward-compatible string fields)
 // =============================================================================
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum FinishReason
+/// <summary>
+/// Known values for <see cref="ChatCompletionChoice.FinishReason"/> /
+/// <see cref="ChatCompletionDelta.FinishReason"/>. Kept as constants rather than
+/// an enum so that unrecognized server-side additions (e.g. "content_filter")
+/// don't break deserialization mid-stream.
+/// </summary>
+public static class FinishReasons
 {
-   [JsonStringEnumMemberName("stop")]
-   Stop,
-
-   [JsonStringEnumMemberName("length")]
-   Length,
-
-   [JsonStringEnumMemberName("tool_calls")]
-   ToolCalls,
-
-   [JsonStringEnumMemberName("error")]
-   Error
+   public const string Stop      = "stop";
+   public const string Length    = "length";
+   public const string ToolCalls = "tool_calls";
+   public const string Error     = "error";
 }
+
+// =============================================================================
+// ENUMS (request-side only — values are produced by this client, not the server,
+// so a closed enum is safe.)
+// =============================================================================
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum PredictionType
@@ -196,7 +207,7 @@ public sealed class ChatCompletionRequest
    public int? MaxTokens { get; init; }
 
    [JsonPropertyName("metadata")]
-   public Dictionary<string, object>? Metadata { get; init; }
+   public Dictionary<string, JsonElement>? Metadata { get; init; }
 
    [JsonPropertyName("n")]
    public int? N { get; init; }
@@ -275,6 +286,14 @@ public sealed class SystemMessage : ChatMessage
 
 public sealed class UserMessage : ChatMessage
 {
+   /// <summary>
+   /// JSON value: either a <see cref="string"/> (text-only message) or a
+   /// <see cref="UserContentPart"/>[] (multi-modal: text + document_url / image_url / reference).
+   /// Construct only via <see cref="FromText(string)"/> or <see cref="FromParts(UserContentPart[])"/>
+   /// so System.Text.Json emits the polymorphic "type" discriminator on each part.
+   /// Assigning a single <see cref="UserContentPart"/> (without wrapping it in an array)
+   /// will produce malformed JSON because the static element type is lost.
+   /// </summary>
    [JsonPropertyName("content")]
    public object Content { get; private init; } = null!;
 
@@ -380,8 +399,9 @@ public sealed class ToolCallFunction
 
 public sealed class ToolDefinition
 {
+   // "function" is currently the only Mistral-accepted value; default removes ceremony.
    [JsonPropertyName("type")]
-   public required string Type { get; init; }
+   public string Type { get; init; } = "function";
 
    [JsonPropertyName("function")]
    public required ToolFunctionDefinition Function { get; init; }
@@ -395,8 +415,9 @@ public sealed class ToolFunctionDefinition
    [JsonPropertyName("description")]
    public string? Description { get; init; }
 
+   // JSON Schema describing the function's parameters.
    [JsonPropertyName("parameters")]
-   public object? ParametersSchema { get; init; }
+   public JsonNode? ParametersSchema { get; init; }
 }
 
 public sealed class ToolChoiceFunction
@@ -424,7 +445,7 @@ public sealed class GuardrailConfig
    public string? Type { get; init; }
 
    [JsonPropertyName("params")]
-   public Dictionary<string, object>? Params { get; init; }
+   public Dictionary<string, JsonElement>? Params { get; init; }
 }
 
 public sealed class ResponseFormat
@@ -433,7 +454,7 @@ public sealed class ResponseFormat
    public required ResponseFormatType Type { get; init; }
 
    [JsonPropertyName("json_schema")]
-   public object? JsonSchema { get; init; }
+   public JsonNode? JsonSchema { get; init; }
 }
 
 // =============================================================================
@@ -469,8 +490,9 @@ public sealed class ChatCompletionChoice
    [JsonPropertyName("message")]
    public AssistantMessage? Message { get; init; }
 
+   // string for forward-compat with new server-side reasons. See FinishReasons.
    [JsonPropertyName("finish_reason")]
-   public FinishReason? FinishReason { get; init; }
+   public string? FinishReason { get; init; }
 }
 
 public sealed class UsageInfo
@@ -518,8 +540,9 @@ public sealed class ChatCompletionDelta
    [JsonPropertyName("delta")]
    public required ChatMessageDelta Delta { get; init; }
 
+   // string for forward-compat with new server-side reasons. See FinishReasons.
    [JsonPropertyName("finish_reason")]
-   public FinishReason? FinishReason { get; init; }
+   public string? FinishReason { get; init; }
 }
 
 public sealed class ChatMessageDelta
@@ -561,3 +584,46 @@ public sealed class ToolCallFunctionDelta
    [JsonPropertyName("arguments")]
    public string? ArgumentsJson { get; init; }
 }
+
+// =============================================================================
+// ERROR RESPONSE
+// =============================================================================
+
+/// <summary>
+/// Body shape returned by Mistral on 4xx/5xx (and as the inner payload of some
+/// error chunks during streaming). Deserialize this whenever an HTTP call comes
+/// back !IsSuccessStatusCode, then surface <see cref="Message"/> to the user.
+/// </summary>
+public sealed class MistralErrorResponse
+{
+   [JsonPropertyName("object")]  public string? Object  { get; init; }   // always "error"
+   [JsonPropertyName("message")] public string? Message { get; init; }
+   [JsonPropertyName("type")]    public string? Type    { get; init; }
+   [JsonPropertyName("code")]    public string? Code    { get; init; }
+   [JsonPropertyName("param")]   public string? Param   { get; init; }
+}
+
+// =============================================================================
+// SOURCE-GENERATED JSON CONTEXT (.NET 10 trim/AOT-friendly)
+//
+// Opt-in: callers using reflection-based JsonSerializerOptions are unaffected.
+// To use, pass MistralJsonContext.Default.ChatCompletionRequest (etc.) to
+// JsonSerializer / JsonContent.Create.
+//
+// Caveats:
+//   * UserMessage.Content is typed as `object`; STJ falls back to reflection
+//     for that one property, so full AOT cleanliness needs that to be tightened
+//     to a concrete (or polymorphic) type first.
+//   * ToolChoiceConverter / StopConverter use JsonDocument.ParseValue and
+//     JsonSerializer.Deserialize<List<string>> internally — both work at
+//     runtime but emit IL2026/IL3050 warnings under PublishAot.
+// =============================================================================
+
+[JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(ChatCompletionRequest))]
+[JsonSerializable(typeof(ChatCompletionResponse))]
+[JsonSerializable(typeof(ChatCompletionChunk))]
+[JsonSerializable(typeof(MistralErrorResponse))]
+[JsonSerializable(typeof(UserContentPart))]
+[JsonSerializable(typeof(UserContentPart[]))]
+public sealed partial class MistralJsonContext : JsonSerializerContext { }
