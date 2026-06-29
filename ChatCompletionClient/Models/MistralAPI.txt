@@ -1,7 +1,7 @@
 // Copyright(c) June 2026, devMobile Software
 // Generated from https://docs.mistral.ai/api/endpoint/chat
 
-namespace devMobile.Mistral.ModelsV1;
+namespace devMobile.Mistral.ModelsV2;
 
 using System;
 using System.Collections.Generic;
@@ -558,3 +558,1582 @@ public sealed class ToolCallFunctionDelta
    [JsonPropertyName("arguments")]
    public string? ArgumentsJson { get; init; }
 }
+
+
+
+// Copyright(c) June 2026, devMobile Software
+// Generated from https://docs.mistral.ai/api/endpoint/chat
+
+namespace devMobile.Mistral.ModelsV1;
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+
+// =============================================================================
+// CUSTOM CONVERTERS
+// =============================================================================
+
+public class ToolChoiceConverter : JsonConverter<ToolChoiceUnion>
+{
+   public override ToolChoiceUnion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+   {
+      if (reader.TokenType == JsonTokenType.String)
+         return new ToolChoiceUnion { StringValue = reader.GetString() };
+
+      if (reader.TokenType == JsonTokenType.StartObject)
+      {
+         using var doc = JsonDocument.ParseValue(ref reader);
+            if (doc.RootElement.TryGetProperty("type", out var typeProp) &&
+                typeProp.GetString() == "function" &&
+                doc.RootElement.TryGetProperty("function", out var funcProp))
+            {
+               return new ToolChoiceUnion
+               {
+                  Type = "function",
+                  Function = funcProp.Deserialize<ToolChoiceFunction>(options)
+               };
+            }
+            throw new JsonException(
+                      $"Unexpected JSON for {nameof(ToolChoiceUnion)}: object missing 'type'='function' and/or 'function' member.");
+         }
+
+         throw new JsonException(
+            $"Unexpected JSON token for {nameof(ToolChoiceUnion)}: {reader.TokenType}.");
+      }
+   
+   public override void Write(Utf8JsonWriter writer, ToolChoiceUnion value, JsonSerializerOptions options)
+   {
+      if (value.StringValue != null)
+      {
+         writer.WriteStringValue(value.StringValue);
+         return;
+      }
+
+      writer.WriteStartObject();
+      writer.WriteString("type", value.Type ?? "function");
+      if (value.Function != null)
+      {
+         writer.WritePropertyName("function");
+         JsonSerializer.Serialize(writer, value.Function, options);
+      }
+      writer.WriteEndObject();
+   }
+}
+
+public sealed class StopConverter : JsonConverter<StopUnion>
+{
+   public override StopUnion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+   {
+      if (reader.TokenType == JsonTokenType.String)
+         return new StopUnion { StringValue = reader.GetString() };
+
+      if (reader.TokenType == JsonTokenType.StartArray)
+      {
+         var list = JsonSerializer.Deserialize<List<string>>(ref reader, options);
+         return new StopUnion { StringListValue = list };
+      }
+
+      throw new JsonException(
+         $"Unexpected JSON token for {nameof(StopUnion)}: {reader.TokenType}.");
+   }
+
+   public override void Write(Utf8JsonWriter writer, StopUnion value, JsonSerializerOptions options)
+   {
+      if (value.StringValue is not null)
+         writer.WriteStringValue(value.StringValue);
+      else if (value.StringListValue is not null)
+         JsonSerializer.Serialize(writer, value.StringListValue, options);
+      else
+         throw new JsonException($"{nameof(StopUnion)} has neither {nameof(StopUnion.StringValue)} nor {nameof(StopUnion.StringListValue)} set.");
+   }
+}
+
+// =============================================================================
+// UNION TYPES
+// =============================================================================
+
+[JsonConverter(typeof(ToolChoiceConverter))]
+public sealed class ToolChoiceUnion
+{
+   [JsonIgnore] public string? StringValue { get; init; }
+   [JsonIgnore] public string? Type { get; init; }
+   [JsonIgnore] public ToolChoiceFunction? Function { get; init; }
+
+   public static implicit operator ToolChoiceUnion(string value) => new() { StringValue = value };
+}
+
+[JsonConverter(typeof(StopConverter))]
+public sealed class StopUnion
+{
+   [JsonIgnore] public string? StringValue { get; init; }
+   [JsonIgnore] public List<string>? StringListValue { get; init; }
+
+   public static implicit operator StopUnion(string value) => new() { StringValue = value };
+   public static implicit operator StopUnion(string[] values) => new() { StringListValue = values.ToList() };
+}
+
+// =============================================================================
+// CONSTANTS (forward-compatible string fields)
+// =============================================================================
+
+/// <summary>
+/// Known values for <see cref="ChatCompletionChoice.FinishReason"/> /
+/// <see cref="ChatCompletionDelta.FinishReason"/>. Kept as constants rather than
+/// an enum so that unrecognized server-side additions (e.g. "content_filter")
+/// don't break deserialization mid-stream.
+/// </summary>
+public static class FinishReasons
+{
+   public const string Stop= "stop";
+   public const string Length= "length";
+   public const string ToolCalls= "tool_calls";
+   public const string Error= "error";
+}
+
+// =============================================================================
+// ENUMS (request-side only — values are produced by this client, not the server,
+// so a closed enum is safe.)
+// =============================================================================
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum FinishReason
+{
+   [JsonStringEnumMemberName("stop")]
+   Stop,
+
+   [JsonStringEnumMemberName("length")]
+   Length,
+
+   [JsonStringEnumMemberName("tool_calls")]
+   ToolCalls,
+
+   [JsonStringEnumMemberName("error")]
+   Error
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PredictionType
+{
+   [JsonStringEnumMemberName("content")]
+   Content
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ResponseFormatType
+{
+   [JsonStringEnumMemberName("text")]
+   Text,
+
+   [JsonStringEnumMemberName("json_object")]
+   JsonObject,
+
+   [JsonStringEnumMemberName("json_schema")]
+   JsonSchema
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PromptMode
+{
+   [JsonStringEnumMemberName("reasoning")]
+   Reasoning
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ReasoningEffort
+{
+   [JsonStringEnumMemberName("none")]
+   None,
+
+   [JsonStringEnumMemberName("minimal")]
+   Minimal,
+
+   [JsonStringEnumMemberName("low")]
+   Low,
+
+   [JsonStringEnumMemberName("medium")]
+   Medium,
+
+   [JsonStringEnumMemberName("high")]
+   High,
+
+   [JsonStringEnumMemberName("xhigh")]
+   XHigh
+}
+
+// =============================================================================
+// REQUEST
+// =============================================================================
+
+public sealed class ChatCompletionRequest
+{
+   [JsonPropertyName("model")]
+   public required string Model { get; init; }
+
+   [JsonPropertyName("messages")]
+   public required List<ChatMessage> Messages { get; init; }
+
+   [JsonPropertyName("frequency_penalty")]
+   public double? FrequencyPenalty { get; init; }
+
+   [JsonPropertyName("guardrails")]
+   public List<GuardrailConfig>? Guardrails { get; init; }
+
+   [JsonPropertyName("max_tokens")]
+   public int? MaxTokens { get; init; }
+
+   [JsonPropertyName("metadata")]
+   public Dictionary<string, JsonElement>? Metadata { get; init; }
+
+   [JsonPropertyName("n")]
+   public int? N { get; init; }
+
+   [JsonPropertyName("parallel_tool_calls")]
+   public bool? ParallelToolCalls { get; init; }
+
+   [JsonPropertyName("prediction")]
+   public Prediction? Prediction { get; init; }
+
+   [JsonPropertyName("presence_penalty")]
+   public double? PresencePenalty { get; init; }
+
+   [JsonPropertyName("prompt_cache_key")]
+   public string? PromptCacheKey { get; init; }
+
+   [JsonPropertyName("prompt_mode")]
+   public PromptMode? PromptMode { get; init; }
+
+   [JsonPropertyName("random_seed")]
+   public int? RandomSeed { get; init; }
+
+   [JsonPropertyName("reasoning_effort")]
+   public ReasoningEffort? ReasoningEffort { get; init; }
+
+   [JsonPropertyName("response_format")]
+   public ResponseFormat? ResponseFormat { get; init; }
+
+   [JsonPropertyName("safe_prompt")]
+   public bool? SafePrompt { get; init; }
+
+   [JsonPropertyName("stop")]
+   public StopUnion? Stop { get; init; }
+
+   [JsonPropertyName("stream")]
+   public bool? Stream { get; init; }
+
+   [JsonPropertyName("temperature")]
+   public double? Temperature { get; init; }
+
+   [JsonPropertyName("top_p")]
+   public double? TopP { get; init; }
+
+   [JsonPropertyName("tool_choice")]
+   public ToolChoiceUnion? ToolChoice { get; init; }
+
+   [JsonPropertyName("tools")]
+   public List<ToolDefinition>? Tools { get; init; }
+}
+
+// =============================================================================
+// MESSAGES
+// =============================================================================
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "role")]
+[JsonDerivedType(typeof(SystemMessage), typeDiscriminator: "system")]
+[JsonDerivedType(typeof(UserMessage), typeDiscriminator: "user")]
+[JsonDerivedType(typeof(AssistantMessage), typeDiscriminator: "assistant")]
+[JsonDerivedType(typeof(ToolMessage), typeDiscriminator: "tool")]
+public abstract class ChatMessage
+{
+   public static SystemMessage System(string content) => new(content);
+   public static UserMessage User(string text) => UserMessage.FromText(text);
+   public static UserMessage User(params UserContentPart[] parts) => UserMessage.FromParts(parts);
+   public static ToolMessage Tool(string content, string toolCallId) => new(content, toolCallId);
+}
+
+public sealed class SystemMessage : ChatMessage
+{
+   [JsonPropertyName("content")]
+   public required string Content { get; init; }
+
+   [SetsRequiredMembers]
+   internal SystemMessage(string content) => Content = content;
+}
+
+public sealed class UserMessage : ChatMessage
+{
+   [JsonPropertyName("content")]
+   public object Content { get; private init; } = null!;
+
+   public static UserMessage FromText(string text) => new() { Content = text };
+   public static UserMessage FromParts(params UserContentPart[] parts) => new() { Content = parts };
+}
+
+public sealed class AssistantMessage : ChatMessage
+{
+   [JsonPropertyName("content")]
+   public string? Content { get; init; }
+
+   [JsonPropertyName("tool_calls")]
+   public List<ToolCall>? ToolCalls { get; init; }
+
+   internal AssistantMessage() { }
+}
+
+public sealed class ToolMessage : ChatMessage
+{
+   [JsonPropertyName("content")]
+   public required string Content { get; init; }
+
+   [JsonPropertyName("tool_call_id")]
+   public required string ToolCallId { get; init; }
+
+   [SetsRequiredMembers]
+   internal ToolMessage(string content, string toolCallId) =>
+       (Content, ToolCallId) = (content, toolCallId);
+}
+
+// =============================================================================
+// USER CONTENT PARTS (multi-modal)
+// =============================================================================
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(TextPart), typeDiscriminator: "text")]
+[JsonDerivedType(typeof(DocumentUrlPart), typeDiscriminator: "document_url")]
+[JsonDerivedType(typeof(ImageUrlPart), typeDiscriminator: "image_url")]
+[JsonDerivedType(typeof(ReferencePart), typeDiscriminator: "reference")]
+public abstract class UserContentPart { }
+
+public sealed class TextPart : UserContentPart
+{
+   [JsonPropertyName("text")]
+   public required string Text { get; init; }
+}
+
+public sealed class DocumentUrlPart : UserContentPart
+{
+   [JsonPropertyName("document_url")]
+   public required string DocumentUrl { get; init; }
+
+   [JsonPropertyName("document_name")]
+   public string? DocumentName { get; init; }
+}
+
+public sealed class ImageUrlPart : UserContentPart
+{
+   [JsonPropertyName("image_url")]
+   public required ImageUrlObject ImageUrl { get; init; }
+}
+
+public sealed class ImageUrlObject
+{
+   [JsonPropertyName("url")]
+   public required string Url { get; init; }
+
+   [JsonPropertyName("detail")]
+   public string? Detail { get; init; }
+}
+
+public sealed class ReferencePart : UserContentPart
+{
+   [JsonPropertyName("reference_ids")]
+   public required List<int> ReferenceIds { get; init; }
+}
+
+// =============================================================================
+// TOOL CALLING
+// =============================================================================
+
+public sealed class ToolCall
+{
+   [JsonPropertyName("id")]
+   public required string Id { get; init; }
+
+   [JsonPropertyName("type")]
+   public required string Type { get; init; }
+
+   [JsonPropertyName("function")]
+   public required ToolCallFunction Function { get; init; }
+}
+
+public sealed class ToolCallFunction
+{
+   [JsonPropertyName("name")]
+   public required string Name { get; init; }
+
+   [JsonPropertyName("arguments")]
+   public required string ArgumentsJson { get; init; }
+}
+
+public sealed class ToolDefinition
+{
+   // "function" is currently the only Mistral-accepted value; default removes ceremony.
+   [JsonPropertyName("type")]
+   public required string Type { get; init; } = "function";
+
+   [JsonPropertyName("function")]
+   public required ToolFunctionDefinition Function { get; init; }
+}
+
+public sealed class ToolFunctionDefinition
+{
+   [JsonPropertyName("name")]
+   public required string Name { get; init; }
+
+   [JsonPropertyName("description")]
+   public string? Description { get; init; }
+
+   // JSON Schema describing the function's parameters.
+   [JsonPropertyName("parameters")]
+   public JsonNode? ParametersSchema { get; init; }
+}
+
+public sealed class ToolChoiceFunction
+{
+   [JsonPropertyName("name")]
+   public required string Name { get; init; }
+}
+
+// =============================================================================
+// OTHER REQUEST SUB-OBJECTS
+// =============================================================================
+
+public sealed class Prediction
+{
+   [JsonPropertyName("type")]
+   public PredictionType Type { get; init; } = PredictionType.Content;
+
+   [JsonPropertyName("content")]
+   public string? Content { get; init; }
+}
+
+public sealed class GuardrailConfig
+{
+   [JsonPropertyName("type")]
+   public string? Type { get; init; }
+
+   [JsonPropertyName("params")]
+   public Dictionary<string, JsonElement>? Params { get; init; }
+}
+
+public sealed class ResponseFormat
+{
+   [JsonPropertyName("type")]
+   public required ResponseFormatType Type { get; init; }
+
+   [JsonPropertyName("json_schema")]
+   public JsonNode? JsonSchema { get; init; }
+}
+
+// =============================================================================
+// RESPONSE (non-streaming)
+// =============================================================================
+
+public sealed class ChatCompletionResponse
+{
+   [JsonPropertyName("id")]
+   public required string Id { get; init; }
+
+   [JsonPropertyName("object")]
+   public required string Object { get; init; }
+
+   [JsonPropertyName("created")]
+   public required long Created { get; init; }
+
+   [JsonPropertyName("model")]
+   public required string Model { get; init; }
+
+   [JsonPropertyName("choices")]
+   public required List<ChatCompletionChoice> Choices { get; init; }
+
+   [JsonPropertyName("usage")]
+   public required UsageInfo Usage { get; init; }
+}
+
+public sealed class ChatCompletionChoice
+{
+   [JsonPropertyName("index")]
+   public int Index { get; init; }
+
+   [JsonPropertyName("message")]
+   public AssistantMessage? Message { get; init; }
+
+   // string for forward-compat with new server-side reasons. See FinishReasons.
+   [JsonPropertyName("finish_reason")]
+   public string? FinishReason { get; init; }
+   //public FinishReason? FinishReason { get; init; }
+}
+
+public sealed class UsageInfo
+{
+   [JsonPropertyName("prompt_tokens")]
+   public int? PromptTokens { get; init; }
+
+   [JsonPropertyName("completion_tokens")]
+   public int? CompletionTokens { get; init; }
+
+   [JsonPropertyName("total_tokens")]
+   public int? TotalTokens { get; init; }
+}
+
+// =============================================================================
+// RESPONSE (streaming - text/event-stream)
+// =============================================================================
+
+public sealed class ChatCompletionChunk
+{
+   [JsonPropertyName("id")]
+   public required string Id { get; init; }
+
+   [JsonPropertyName("object")]
+   public string? Object { get; init; }
+
+   [JsonPropertyName("created")]
+   public long Created { get; init; }
+
+   [JsonPropertyName("model")]
+   public string? Model { get; init; }
+
+   [JsonPropertyName("choices")]
+   public required List<ChatCompletionDelta> Choices { get; init; }
+
+   [JsonPropertyName("usage")]
+   public UsageInfo? Usage { get; init; }
+}
+
+public sealed class ChatCompletionDelta
+{
+   [JsonPropertyName("index")]
+   public int Index { get; init; }
+
+   [JsonPropertyName("delta")]
+   public required ChatMessageDelta Delta { get; init; }
+
+   // string for forward-compat with new server-side reasons. See FinishReasons.
+   [JsonPropertyName("finish_reason")]
+   public string? FinishReason { get; init; }
+   //public FinishReason? FinishReason { get; init; }
+}
+
+public sealed class ChatMessageDelta
+{
+   [JsonPropertyName("role")]
+   public string? Role { get; init; }
+
+   [JsonPropertyName("content")]
+   public string? Content { get; init; }
+
+   [JsonPropertyName("tool_calls")]
+   public List<ToolCallDelta>? ToolCalls { get; init; }
+}
+
+// =============================================================================
+// STREAMING TOOL CALL DTOs
+// =============================================================================
+
+public sealed class ToolCallDelta
+{
+   [JsonPropertyName("index")]
+   public int? Index { get; init; }
+
+   [JsonPropertyName("id")]
+   public string? Id { get; init; }
+
+   [JsonPropertyName("type")]
+   public string? Type { get; init; }
+
+   [JsonPropertyName("function")]
+   public ToolCallFunctionDelta? Function { get; init; }
+}
+
+public sealed class ToolCallFunctionDelta
+{
+   [JsonPropertyName("name")]
+   public string? Name { get; init; }
+
+   [JsonPropertyName("arguments")]
+   public string? ArgumentsJson { get; init; }
+}
+
+
+// Mistral AI Chat Completion API - C# DTOs
+// Endpoint: POST /v1/chat/completions
+// Documentation: https://docs.mistral.ai/api/endpoint/chat
+// Requires .NET 6+ for JsonDerivedTypeAttribute
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace MistralAI.Chat1234567890
+{
+   // =========================================================================
+   // REQUEST DTOs
+   // =========================================================================
+
+   public class ChatCompletionRequest
+   {
+      [JsonPropertyName("model")] public string Model { get; set; }
+      [JsonPropertyName("messages")] public List<ChatMessage> Messages { get; set; } = new();
+      [JsonPropertyName("n")] public int? N { get; set; }
+      [JsonPropertyName("max_tokens")] public int? MaxTokens { get; set; }
+      [JsonPropertyName("temperature")] public double? Temperature { get; set; }
+      [JsonPropertyName("top_p")] public double? TopP { get; set; }
+      [JsonPropertyName("frequency_penalty")] public double? FrequencyPenalty { get; set; }
+      [JsonPropertyName("presence_penalty")] public double? PresencePenalty { get; set; }
+      [JsonPropertyName("stop")] public object? Stop { get; set; }
+      [JsonPropertyName("random_seed")] public int? RandomSeed { get; set; }
+      [JsonPropertyName("stream")] public bool? Stream { get; set; }
+      [JsonPropertyName("safe_prompt")] public bool? SafePrompt { get; set; }
+      [JsonPropertyName("prompt_cache_key")] public string? PromptCacheKey { get; set; }
+      [JsonPropertyName("prompt_mode")] public string? PromptMode { get; set; }
+      [JsonPropertyName("prediction")] public Prediction? Prediction { get; set; }
+      [JsonPropertyName("response_format")] public ResponseFormat? ResponseFormat { get; set; }
+      [JsonPropertyName("tool_choice")] public object? ToolChoice { get; set; }
+      [JsonPropertyName("tools")] public List<Tool>? Tools { get; set; }
+      [JsonPropertyName("parallel_tool_calls")] public bool? ParallelToolCalls { get; set; }
+      [JsonPropertyName("guardrails")] public List<GuardrailConfig>? Guardrails { get; set; }
+      [JsonPropertyName("reasoning_effort")] public string? ReasoningEffort { get; set; }
+   }
+
+   // =========================================================================
+   // MESSAGE TYPES
+   // =========================================================================
+
+   [JsonDerivedType(typeof(SystemMessage), typeDiscriminator: "system")]
+   [JsonDerivedType(typeof(UserMessage), typeDiscriminator: "user")]
+   [JsonDerivedType(typeof(AssistantMessage), typeDiscriminator: "assistant")]
+   [JsonDerivedType(typeof(ToolMessage), typeDiscriminator: "tool")]
+   public class ChatMessage
+   {
+      [JsonPropertyName("role")] public string Role { get; set; } = string.Empty;
+      [JsonPropertyName("content")] public object? Content { get; set; }
+   }
+
+   public class SystemMessage : ChatMessage
+   {
+      public SystemMessage() => Role = "system";
+      [JsonPropertyName("content")] public new string Content { get; set; } = string.Empty;
+   }
+
+   public class UserMessage : ChatMessage
+   {
+      public UserMessage() => Role = "user";
+      [JsonPropertyName("content")] public new object Content { get; set; } = string.Empty;
+   }
+
+   public class AssistantMessage : ChatMessage
+   {
+      public AssistantMessage() => Role = "assistant";
+      [JsonPropertyName("content")] public new object Content { get; set; } = string.Empty;
+      [JsonPropertyName("tool_calls")] public List<ToolCall>? ToolCalls { get; set; }
+   }
+
+   public class ToolMessage : ChatMessage
+   {
+      public ToolMessage() => Role = "tool";
+      [JsonPropertyName("content")] public new string Content { get; set; } = string.Empty;
+      [JsonPropertyName("tool_call_id")] public string? ToolCallId { get; set; }
+   }
+
+   [JsonDerivedType(typeof(TextContent), typeDiscriminator: "text")]
+   [JsonDerivedType(typeof(ImageContent), typeDiscriminator: "image")]
+   [JsonDerivedType(typeof(ToolCallContent), typeDiscriminator: "tool_call")]
+   public class ChatMessageContent
+   {
+      [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
+   }
+
+   public class TextContent : ChatMessageContent
+   {
+      public TextContent() => Type = "text";
+      [JsonPropertyName("text")] public string Text { get; set; } = string.Empty;
+   }
+
+   public class ImageContent : ChatMessageContent
+   {
+      public ImageContent() => Type = "image";
+      [JsonPropertyName("image")] public string Image { get; set; } = string.Empty;
+      [JsonPropertyName("mime_type")] public string? MimeType { get; set; }
+   }
+
+   public class ToolCallContent : ChatMessageContent
+   {
+      public ToolCallContent() => Type = "tool_call";
+      [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+      [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+      [JsonPropertyName("arguments")] public string Arguments { get; set; } = string.Empty;
+   }
+
+   // =========================================================================
+   // TOOL DEFINITIONS
+   // =========================================================================
+
+   [JsonDerivedType(typeof(FunctionTool), typeDiscriminator: "function")]
+   [JsonDerivedType(typeof(WebSearchTool), typeDiscriminator: "web_search")]
+   [JsonDerivedType(typeof(WebSearchPremiumTool), typeDiscriminator: "web_search_premium")]
+   [JsonDerivedType(typeof(CodeInterpreterTool), typeDiscriminator: "code_interpreter")]
+   [JsonDerivedType(typeof(ImageGenerationTool), typeDiscriminator: "image_generation")]
+   [JsonDerivedType(typeof(DocumentLibraryTool), typeDiscriminator: "document_library")]
+   [JsonDerivedType(typeof(CustomConnector), typeDiscriminator: "custom_connector")]
+   public class Tool
+   {
+      [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
+      [JsonPropertyName("function")] public ToolFunction Function { get; set; } = new();
+   }
+
+   public class ToolFunction
+   {
+      [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+      [JsonPropertyName("description")] public string? Description { get; set; }
+      [JsonPropertyName("parameters")] public ToolParameters? Parameters { get; set; }
+      [JsonPropertyName("strict")] public bool? Strict { get; set; }
+   }
+
+   public class FunctionTool : Tool
+   {
+      public FunctionTool() => Type = "function";
+   }
+
+   public class WebSearchTool : Tool
+   {
+      public WebSearchTool() => Type = "web_search";
+   }
+
+   public class WebSearchPremiumTool : Tool
+   {
+      public WebSearchPremiumTool() => Type = "web_search_premium";
+   }
+
+   public class CodeInterpreterTool : Tool
+   {
+      public CodeInterpreterTool() => Type = "code_interpreter";
+   }
+
+   public class ImageGenerationTool : Tool
+   {
+      public ImageGenerationTool() => Type = "image_generation";
+   }
+
+   public class DocumentLibraryTool : Tool
+   {
+      public DocumentLibraryTool() => Type = "document_library";
+   }
+
+   public class CustomConnector : Tool
+   {
+      public CustomConnector() => Type = "custom_connector";
+   }
+
+   public class ToolParameters
+   {
+      [JsonPropertyName("type")] public string Type { get; set; } = "object";
+      [JsonPropertyName("properties")] public Dictionary<string, ToolParameter>? Properties { get; set; }
+      [JsonPropertyName("required")] public List<string>? Required { get; set; }
+   }
+
+   public class ToolParameter
+   {
+      [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
+      [JsonPropertyName("description")] public string? Description { get; set; }
+      [JsonPropertyName("enum")] public List<object>? Enum { get; set; }
+      [JsonPropertyName("items")] public ToolParameter? Items { get; set; }
+      [JsonPropertyName("properties")] public Dictionary<string, ToolParameter>? Properties { get; set; }
+      [JsonPropertyName("required")] public List<string>? Required { get; set; }
+   }
+
+   public class ToolCall
+   {
+      [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+      [JsonPropertyName("type")] public string Type { get; set; } = "function";
+      [JsonPropertyName("function")] public ToolCallFunction Function { get; set; } = new();
+   }
+
+   public class ToolCallFunction
+   {
+      [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+      [JsonPropertyName("arguments")] public string Arguments { get; set; } = string.Empty;
+   }
+
+   // =========================================================================
+   // RESPONSE DTOs
+   // =========================================================================
+
+   public class ChatCompletionResponse
+   {
+      [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+      [JsonPropertyName("object")] public string Object { get; set; } = string.Empty;
+      [JsonPropertyName("created")] public long Created { get; set; }
+      [JsonPropertyName("model")] public string Model { get; set; } = string.Empty;
+      [JsonPropertyName("choices")] public List<ChatCompletionChoice> Choices { get; set; } = new();
+      [JsonPropertyName("usage")] public UsageInfo Usage { get; set; } = new();
+   }
+
+   public class ChatCompletionChoice
+   {
+      [JsonPropertyName("index")] public int Index { get; set; }
+      [JsonPropertyName("message")] public ChatCompletionMessage Message { get; set; } = new();
+      [JsonPropertyName("finish_reason")] public string? FinishReason { get; set; }
+   }
+
+   public class ChatCompletionMessage
+   {
+      [JsonPropertyName("role")] public string Role { get; set; } = string.Empty;
+      [JsonPropertyName("content")] public string? Content { get; set; }
+      [JsonPropertyName("tool_calls")] public List<ToolCall>? ToolCalls { get; set; }
+      [JsonPropertyName("tool_call_id")] public string? ToolCallId { get; set; }
+   }
+
+   public class UsageInfo
+   {
+      [JsonPropertyName("prompt_tokens")] public int PromptTokens { get; set; }
+      [JsonPropertyName("completion_tokens")] public int CompletionTokens { get; set; }
+      [JsonPropertyName("total_tokens")] public int TotalTokens { get; set; }
+   }
+
+   // =========================================================================
+   // STREAMING DTOs
+   // =========================================================================
+
+   [JsonDerivedType(typeof(CompletionCompletionEvent), typeDiscriminator: "completion")]
+   [JsonDerivedType(typeof(CompletionMessageDeltaEvent), typeDiscriminator: "completion.message.delta")]
+   [JsonDerivedType(typeof(CompletionDoneEvent), typeDiscriminator: "done")]
+   public class CompletionEvent
+   {
+      [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
+   }
+
+   public class CompletionCompletionEvent : CompletionEvent
+   {
+      public CompletionCompletionEvent() => Type = "completion";
+      [JsonPropertyName("data")] public ChatCompletionResponse Data { get; set; } = new();
+   }
+
+   public class CompletionMessageDeltaEvent : CompletionEvent
+   {
+      public CompletionMessageDeltaEvent() => Type = "completion.message.delta";
+      [JsonPropertyName("data")] public CompletionMessageDeltaData Data { get; set; } = new();
+   }
+
+   public class CompletionMessageDeltaData
+   {
+      [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+      [JsonPropertyName("object")] public string Object { get; set; } = string.Empty;
+      [JsonPropertyName("created")] public long Created { get; set; }
+      [JsonPropertyName("model")] public string Model { get; set; } = string.Empty;
+      [JsonPropertyName("choices")] public List<ChoiceDelta> Choices { get; set; } = new();
+   }
+
+   public class ChoiceDelta
+   {
+      [JsonPropertyName("index")] public int Index { get; set; }
+      [JsonPropertyName("delta")] public Delta Data { get; set; } = new();
+      [JsonPropertyName("finish_reason")] public string? FinishReason { get; set; }
+   }
+
+   public class Delta
+   {
+      [JsonPropertyName("role")] public string? Role { get; set; }
+      [JsonPropertyName("content")] public string? Content { get; set; }
+      [JsonPropertyName("tool_calls")] public List<ToolCallDelta>? ToolCalls { get; set; }
+   }
+
+   public class ToolCallDelta
+   {
+      [JsonPropertyName("id")] public string? Id { get; set; }
+      [JsonPropertyName("type")] public string? Type { get; set; }
+      [JsonPropertyName("function")] public ToolCallDeltaFunction? Function { get; set; }
+   }
+
+   public class ToolCallDeltaFunction
+   {
+      [JsonPropertyName("name")] public string? Name { get; set; }
+      [JsonPropertyName("arguments")] public string? Arguments { get; set; }
+   }
+
+   public class CompletionDoneEvent : CompletionEvent
+   {
+      public CompletionDoneEvent() => Type = "done";
+      [JsonPropertyName("data")] public List<int> Data { get; set; } = new();
+   }
+
+   // =========================================================================
+   // OTHER TYPES
+   // =========================================================================
+
+   public class Prediction
+   {
+      [JsonPropertyName("text")] public string Text { get; set; } = string.Empty;
+      [JsonPropertyName("confidence")] public double? Confidence { get; set; }
+   }
+
+   [JsonDerivedType(typeof(TextResponseFormat), typeDiscriminator: "text")]
+   [JsonDerivedType(typeof(JsonObjectResponseFormat), typeDiscriminator: "json_object")]
+   [JsonDerivedType(typeof(JsonSchemaResponseFormat), typeDiscriminator: "json_schema")]
+   public class ResponseFormat
+   {
+      [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
+   }
+
+   public class TextResponseFormat : ResponseFormat
+   {
+      public TextResponseFormat() => Type = "text";
+   }
+
+   public class JsonObjectResponseFormat : ResponseFormat
+   {
+      public JsonObjectResponseFormat() => Type = "json_object";
+   }
+
+   public class JsonSchemaResponseFormat : ResponseFormat
+   {
+      public JsonSchemaResponseFormat() => Type = "json_schema";
+      [JsonPropertyName("schema")] public Dictionary<string, object> Schema { get; set; } = new();
+   }
+
+   public class GuardrailConfig
+   {
+      [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+      [JsonPropertyName("description")] public string? Description { get; set; }
+      [JsonPropertyName("enabled")] public bool Enabled { get; set; }
+      [JsonPropertyName("severity")] public string? Severity { get; set; }
+      [JsonPropertyName("action")] public string? Action { get; set; }
+      [JsonPropertyName("pattern")] public object? Pattern { get; set; }
+   }
+
+   // =========================================================================
+   // STREAMING REQUEST
+   // =========================================================================
+
+   public class ChatCompletionStreamRequest : ChatCompletionRequest
+   {
+      public ChatCompletionStreamRequest() => Stream = true;
+   }
+}
+
+
+// Copyright(c) June 2026, devMobile Software
+// Generated from https://docs.mistral.ai/api/endpoint/chat
+
+namespace devMobile.Mistral.ModelsV23456;
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+
+// =============================================================================
+// CUSTOM CONVERTERS
+// =============================================================================
+
+public sealed class ToolChoiceConverter : JsonConverter<ToolChoiceUnion>
+{
+   public override ToolChoiceUnion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+   {
+      if (reader.TokenType == JsonTokenType.String)
+         return new ToolChoiceUnion { StringValue = reader.GetString() };
+
+      if (reader.TokenType == JsonTokenType.StartObject)
+      {
+         using var doc = JsonDocument.ParseValue(ref reader);
+         if (doc.RootElement.TryGetProperty("type", out var typeProp) &&
+             typeProp.GetString() == "function" &&
+             doc.RootElement.TryGetProperty("function", out var funcProp))
+         {
+            return new ToolChoiceUnion
+            {
+               Type = "function",
+               Function = funcProp.Deserialize<ToolChoiceFunction>(options)
+            };
+         }
+         throw new JsonException(
+             $"Unexpected JSON for {nameof(ToolChoiceUnion)}: object missing 'type'='function' and/or 'function' member.");
+      }
+
+      throw new JsonException(
+          $"Unexpected JSON token for {nameof(ToolChoiceUnion)}: {reader.TokenType}.");
+   }
+
+   public override void Write(Utf8JsonWriter writer, ToolChoiceUnion value, JsonSerializerOptions options)
+   {
+      if (value.StringValue != null)
+      {
+         writer.WriteStringValue(value.StringValue);
+         return;
+      }
+
+      writer.WriteStartObject();
+      writer.WriteString("type", value.Type ?? "function");
+      if (value.Function != null)
+      {
+         writer.WritePropertyName("function");
+         JsonSerializer.Serialize(writer, value.Function, options);
+      }
+      writer.WriteEndObject();
+   }
+}
+
+public sealed class StopConverter : JsonConverter<StopUnion>
+{
+   public override StopUnion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+   {
+      if (reader.TokenType == JsonTokenType.String)
+         return new StopUnion { StringValue = reader.GetString() };
+
+      if (reader.TokenType == JsonTokenType.StartArray)
+      {
+         var list = JsonSerializer.Deserialize<List<string>>(ref reader, options);
+         return new StopUnion { StringListValue = list };
+      }
+
+      throw new JsonException(
+          $"Unexpected JSON token for {nameof(StopUnion)}: {reader.TokenType}.");
+   }
+
+   public override void Write(Utf8JsonWriter writer, StopUnion value, JsonSerializerOptions options)
+   {
+      if (value.StringValue is not null)
+         writer.WriteStringValue(value.StringValue);
+      else if (value.StringListValue is not null)
+         JsonSerializer.Serialize(writer, value.StringListValue, options);
+      else
+         throw new JsonException($"{nameof(StopUnion)} has neither {nameof(StopUnion.StringValue)} nor {nameof(StopUnion.StringListValue)} set.");
+   }
+}
+
+// =============================================================================
+// UNION TYPES
+// =============================================================================
+
+[JsonConverter(typeof(ToolChoiceConverter))]
+public sealed class ToolChoiceUnion
+{
+   [JsonIgnore] public string? StringValue { get; init; }
+   [JsonIgnore] public string? Type { get; init; }
+   [JsonIgnore] public ToolChoiceFunction? Function { get; init; }
+
+   public static implicit operator ToolChoiceUnion(string value) => new() { StringValue = value };
+}
+
+[JsonConverter(typeof(StopConverter))]
+public sealed class StopUnion
+{
+   [JsonIgnore] public string? StringValue { get; init; }
+   [JsonIgnore] public List<string>? StringListValue { get; init; }
+
+   public static implicit operator StopUnion(string value) => new() { StringValue = value };
+   public static implicit operator StopUnion(string[] values) => new() { StringListValue = values.ToList() };
+}
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/// <summary>
+/// Known values for ChatCompletionChoice.FinishReason / ChatCompletionDelta.FinishReason.
+/// Kept as constants rather than enum so that unrecognized server-side additions
+/// (e.g. "content_filter") don't break deserialization mid-stream.
+/// </summary>
+public static class FinishReasons
+{
+   public const string Stop = "stop";
+   public const string Length = "length";
+   public const string ToolCalls = "tool_calls";
+   public const string Error = "error";
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PredictionType
+{
+   [JsonStringEnumMemberName("content")]
+   Content
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ResponseFormatType
+{
+   [JsonStringEnumMemberName("text")]
+   Text,
+
+   [JsonStringEnumMemberName("json_object")]
+   JsonObject,
+
+   [JsonStringEnumMemberName("json_schema")]
+   JsonSchema
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PromptMode
+{
+   [JsonStringEnumMemberName("reasoning")]
+   Reasoning
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ReasoningEffort
+{
+   [JsonStringEnumMemberName("none")]
+   None,
+
+   [JsonStringEnumMemberName("minimal")]
+   Minimal,
+
+   [JsonStringEnumMemberName("low")]
+   Low,
+
+   [JsonStringEnumMemberName("medium")]
+   Medium,
+
+   [JsonStringEnumMemberName("high")]
+   High,
+
+   [JsonStringEnumMemberName("xhigh")]
+   XHigh
+}
+
+// =============================================================================
+// REQUEST
+// =============================================================================
+
+public sealed class ChatCompletionRequest
+{
+   [JsonPropertyName("model")]
+   public required string Model { get; init; }
+
+   [JsonPropertyName("messages")]
+   public required List<ChatMessage> Messages { get; init; }
+
+   [JsonPropertyName("frequency_penalty")]
+   public double? FrequencyPenalty { get; init; }
+
+   [JsonPropertyName("guardrails")]
+   public List<GuardrailConfig>? Guardrails { get; init; }
+
+   [JsonPropertyName("max_tokens")]
+   public int? MaxTokens { get; init; }
+
+   [JsonPropertyName("metadata")]
+   public Dictionary<string, JsonElement>? Metadata { get; init; }
+
+   [JsonPropertyName("n")]
+   public int? N { get; init; }
+
+   [JsonPropertyName("parallel_tool_calls")]
+   public bool? ParallelToolCalls { get; init; }
+
+   [JsonPropertyName("prediction")]
+   public Prediction? Prediction { get; init; }
+
+   [JsonPropertyName("presence_penalty")]
+   public double? PresencePenalty { get; init; }
+
+   [JsonPropertyName("prompt_cache_key")]
+   public string? PromptCacheKey { get; init; }
+
+   [JsonPropertyName("prompt_mode")]
+   public PromptMode? PromptMode { get; init; }
+
+   [JsonPropertyName("random_seed")]
+   public int? RandomSeed { get; init; }
+
+   [JsonPropertyName("reasoning_effort")]
+   public ReasoningEffort? ReasoningEffort { get; init; }
+
+   [JsonPropertyName("response_format")]
+   public ResponseFormat? ResponseFormat { get; init; }
+
+   [JsonPropertyName("safe_prompt")]
+   public bool? SafePrompt { get; init; }
+
+   [JsonPropertyName("stop")]
+   public StopUnion? Stop { get; init; }
+
+   [JsonPropertyName("stream")]
+   public bool? Stream { get; init; }
+
+   [JsonPropertyName("temperature")]
+   public double? Temperature { get; init; }
+
+   [JsonPropertyName("top_p")]
+   public double? TopP { get; init; }
+
+   [JsonPropertyName("tool_choice")]
+   public ToolChoiceUnion? ToolChoice { get; init; }
+
+   [JsonPropertyName("tools")]
+   public List<ToolDefinition>? Tools { get; init; }
+}
+
+// =============================================================================
+// MESSAGES
+// =============================================================================
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "role")]
+[JsonDerivedType(typeof(SystemMessage), typeDiscriminator: "system")]
+[JsonDerivedType(typeof(UserMessage), typeDiscriminator: "user")]
+[JsonDerivedType(typeof(AssistantMessage), typeDiscriminator: "assistant")]
+[JsonDerivedType(typeof(ToolMessage), typeDiscriminator: "tool")]
+public abstract class ChatMessage
+{
+   public static SystemMessage System(string content) => new(content);
+   public static UserMessage User(string text) => UserMessage.FromText(text);
+   public static UserMessage User(params UserContentPart[] parts) => UserMessage.FromParts(parts);
+   public static ToolMessage Tool(string content, string toolCallId) => new(content, toolCallId);
+}
+
+public sealed class SystemMessage : ChatMessage
+{
+   [JsonPropertyName("content")]
+   public required string Content { get; init; }
+
+   [SetsRequiredMembers]
+   internal SystemMessage(string content) => Content = content;
+}
+
+public sealed class UserMessage : ChatMessage
+{
+   /// <summary>
+   /// JSON value: either a string (text-only message) or a UserContentPart[]
+   /// (multi-modal: text + document_url / image_url / reference).
+   /// Construct ONLY via FromText() or FromParts() to ensure type safety.
+   /// </summary>
+   [JsonPropertyName("content")]
+   public object Content { get; private init; } = null!;
+
+   public static UserMessage FromText(string text) => new() { Content = text };
+   public static UserMessage FromParts(params UserContentPart[] parts) => new() { Content = parts };
+}
+
+public sealed class AssistantMessage : ChatMessage
+{
+   [JsonPropertyName("content")]
+   public string? Content { get; init; }
+
+   [JsonPropertyName("tool_calls")]
+   public List<ToolCall>? ToolCalls { get; init; }
+
+   internal AssistantMessage() { }
+}
+
+public sealed class ToolMessage : ChatMessage
+{
+   [JsonPropertyName("content")]
+   public required string Content { get; init; }
+
+   [JsonPropertyName("tool_call_id")]
+   public required string ToolCallId { get; init; }
+
+   [SetsRequiredMembers]
+   internal ToolMessage(string content, string toolCallId) =>
+       (Content, ToolCallId) = (content, toolCallId);
+}
+
+// =============================================================================
+// USER CONTENT PARTS (multi-modal)
+// =============================================================================
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(TextPart), typeDiscriminator: "text")]
+[JsonDerivedType(typeof(DocumentUrlPart), typeDiscriminator: "document_url")]
+[JsonDerivedType(typeof(ImageUrlPart), typeDiscriminator: "image_url")]
+[JsonDerivedType(typeof(ReferencePart), typeDiscriminator: "reference")]
+public abstract class UserContentPart { }
+
+public sealed class TextPart : UserContentPart
+{
+   [JsonPropertyName("type")]
+   public string Type => "text";
+
+   [JsonPropertyName("text")]
+   public required string Text { get; init; }
+}
+
+public sealed class DocumentUrlPart : UserContentPart
+{
+   [JsonPropertyName("type")]
+   public string Type => "document_url";
+
+   [JsonPropertyName("document_url")]
+   public required string DocumentUrl { get; init; }
+
+   [JsonPropertyName("document_name")]
+   public string? DocumentName { get; init; }
+}
+
+public sealed class ImageUrlPart : UserContentPart
+{
+   [JsonPropertyName("type")]
+   public string Type => "image_url";
+
+   [JsonPropertyName("image_url")]
+   public required ImageUrlObject ImageUrl { get; init; }
+}
+
+public sealed class ImageUrlObject
+{
+   [JsonPropertyName("url")]
+   public required string Url { get; init; }
+
+   [JsonPropertyName("detail")]
+   public string? Detail { get; init; }
+}
+
+public sealed class ReferencePart : UserContentPart
+{
+   [JsonPropertyName("type")]
+   public string Type => "reference";
+
+   [JsonPropertyName("reference_ids")]
+   public required List<int> ReferenceIds { get; init; }
+}
+
+// =============================================================================
+// TOOL CALLING
+// =============================================================================
+
+public sealed class ToolCall
+{
+   [JsonPropertyName("id")]
+   public required string Id { get; init; }
+
+   [JsonPropertyName("type")]
+   public required string Type { get; init; }
+
+   [JsonPropertyName("function")]
+   public required ToolCallFunction Function { get; init; }
+}
+
+public sealed class ToolCallFunction
+{
+   [JsonPropertyName("name")]
+   public required string Name { get; init; }
+
+   [JsonPropertyName("arguments")]
+   public required string ArgumentsJson { get; init; }
+}
+
+public sealed class ToolDefinition
+{
+   [JsonPropertyName("type")]
+   public string Type { get; init; } = "function";
+
+   [JsonPropertyName("function")]
+   public required ToolFunctionDefinition Function { get; init; }
+}
+
+public sealed class ToolFunctionDefinition
+{
+   [JsonPropertyName("name")]
+   public required string Name { get; init; }
+
+   [JsonPropertyName("description")]
+   public string? Description { get; init; }
+
+   [JsonPropertyName("parameters")]
+   public JsonNode? ParametersSchema { get; init; }
+}
+
+public sealed class ToolChoiceFunction
+{
+   [JsonPropertyName("name")]
+   public required string Name { get; init; }
+}
+
+// =============================================================================
+// OTHER REQUEST SUB-OBJECTS
+// =============================================================================
+
+public sealed class Prediction
+{
+   [JsonPropertyName("type")]
+   public PredictionType Type { get; init; } = PredictionType.Content;
+
+   [JsonPropertyName("content")]
+   public string? Content { get; init; }
+}
+
+public sealed class GuardrailConfig
+{
+   [JsonPropertyName("type")]
+   public string? Type { get; init; }
+
+   [JsonPropertyName("params")]
+   public Dictionary<string, JsonElement>? Params { get; init; }
+}
+
+public sealed class ResponseFormat
+{
+   [JsonPropertyName("type")]
+   public required ResponseFormatType Type { get; init; }
+
+   [JsonPropertyName("json_schema")]
+   public JsonNode? JsonSchema { get; init; }
+}
+
+// =============================================================================
+// RESPONSE (non-streaming)
+// =============================================================================
+
+public sealed class ChatCompletionResponse
+{
+   [JsonPropertyName("id")]
+   public required string Id { get; init; }
+
+   [JsonPropertyName("object")]
+   public required string Object { get; init; }
+
+   [JsonPropertyName("created")]
+   public required long Created { get; init; }
+
+   [JsonPropertyName("model")]
+   public required string Model { get; init; }
+
+   [JsonPropertyName("choices")]
+   public required List<ChatCompletionChoice> Choices { get; init; }
+
+   [JsonPropertyName("usage")]
+   public required UsageInfo Usage { get; init; }
+}
+
+public sealed class ChatCompletionChoice
+{
+   [JsonPropertyName("index")]
+   public int Index { get; init; }
+
+   [JsonPropertyName("message")]
+   public AssistantMessage? Message { get; init; }
+
+   [JsonPropertyName("finish_reason")]
+   public string? FinishReason { get; init; }
+}
+
+public sealed class UsageInfo
+{
+   [JsonPropertyName("prompt_tokens")]
+   public int? PromptTokens { get; init; }
+
+   [JsonPropertyName("completion_tokens")]
+   public int? CompletionTokens { get; init; }
+
+   [JsonPropertyName("total_tokens")]
+   public int? TotalTokens { get; init; }
+}
+
+// =============================================================================
+// RESPONSE (streaming)
+// =============================================================================
+
+public sealed class ChatCompletionChunk
+{
+   [JsonPropertyName("id")]
+   public required string Id { get; init; }
+
+   [JsonPropertyName("object")]
+   public string? Object { get; init; }
+
+   [JsonPropertyName("created")]
+   public long Created { get; init; }
+
+   [JsonPropertyName("model")]
+   public string? Model { get; init; }
+
+   [JsonPropertyName("choices")]
+   public required List<ChatCompletionDelta> Choices { get; init; }
+
+   [JsonPropertyName("usage")]
+   public UsageInfo? Usage { get; init; }
+}
+
+public sealed class ChatCompletionDelta
+{
+   [JsonPropertyName("index")]
+   public int Index { get; init; }
+
+   [JsonPropertyName("delta")]
+   public required ChatMessageDelta Delta { get; init; }
+
+   [JsonPropertyName("finish_reason")]
+   public string? FinishReason { get; init; }
+}
+
+public sealed class ChatMessageDelta
+{
+   [JsonPropertyName("role")]
+   public string? Role { get; init; }
+
+   [JsonPropertyName("content")]
+   public string? Content { get; init; }
+
+   [JsonPropertyName("tool_calls")]
+   public List<ToolCallDelta>? ToolCalls { get; init; }
+}
+
+// =============================================================================
+// STREAMING TOOL CALL DTOs
+// =============================================================================
+
+public sealed class ToolCallDelta
+{
+   [JsonPropertyName("index")]
+   public int? Index { get; init; }
+
+   [JsonPropertyName("id")]
+   public string? Id { get; init; }
+
+   [JsonPropertyName("type")]
+   public string? Type { get; init; }
+
+   [JsonPropertyName("function")]
+   public ToolCallFunctionDelta? Function { get; init; }
+}
+
+public sealed class ToolCallFunctionDelta
+{
+   [JsonPropertyName("name")]
+   public string? Name { get; init; }
+
+   [JsonPropertyName("arguments")]
+   public string? ArgumentsJson { get; init; }
+}
+
+// =============================================================================
+// ERROR RESPONSE
+// =============================================================================
+
+/// <summary>
+/// Body shape returned by Mistral on 4xx/5xx (and as the inner payload of some
+/// error chunks during streaming). Deserialize this whenever an HTTP call comes
+/// back !IsSuccessStatusCode, then surface Message to the user.
+/// </summary>
+public sealed class MistralErrorResponse
+{
+   [JsonPropertyName("object")] public string? Object { get; init; }
+   [JsonPropertyName("message")] public string? Message { get; init; }
+   [JsonPropertyName("type")] public string? Type { get; init; }
+   [JsonPropertyName("code")] public string? Code { get; init; }
+   [JsonPropertyName("param")] public string? Param { get; init; }
+}
+
+// =============================================================================
+// SOURCE-GENERATED JSON CONTEXT
+// =============================================================================
+
+[JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(ChatCompletionRequest))]
+[JsonSerializable(typeof(ChatCompletionResponse))]
+[JsonSerializable(typeof(ChatCompletionChunk))]
+[JsonSerializable(typeof(MistralErrorResponse))]
+[JsonSerializable(typeof(UserContentPart))]
+[JsonSerializable(typeof(UserContentPart[]))]
+public sealed partial class MistralJsonContext : JsonSerializerContext { }

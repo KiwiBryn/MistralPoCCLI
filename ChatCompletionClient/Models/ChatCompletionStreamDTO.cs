@@ -1,88 +1,79 @@
 // Copyright(c) June 2026, devMobile Software
+// Mistral AI Chat Completion API — streaming response types (SSE / text/event-stream)
+// Endpoint: POST /v1/chat/completions (stream: true)
+// Documentation: https://docs.mistral.ai/api/endpoint/chat
 
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-namespace ChatCompletionClient;
+namespace MistralAI.Chat.Streaming;
 
-// SSE chunk emitted when stream: true — object = "chat.completion.chunk"
-public sealed class ChatCompletionChunk
+// Each SSE data: line deserialises to one of these.
+// The final chunk (before data: [DONE]) carries a non-null Usage.
+public sealed class ChatCompletionChunkEvent
 {
-    [JsonPropertyName("id")]
-    public required string Id { get; set; }
+   [JsonPropertyName("id")]
+   public required string Id { get; init; }
 
-    [JsonPropertyName("object")]
-    public required string Object { get; set; }
+   [JsonPropertyName("object")]
+   public string? Object { get; init; } // "chat.completion.chunk"
 
-    [JsonPropertyName("created")]
-    public required long Created { get; set; }
+   [JsonPropertyName("created")]
+   public long Created { get; init; }
 
-    [JsonPropertyName("model")]
-    public required string Model { get; set; }
+   [JsonPropertyName("model")]
+   public string? Model { get; init; }
 
-    [JsonPropertyName("choices")]
-    public required ChatCompletionChunkChoice[] Choices { get; set; }
+   [JsonPropertyName("choices")]
+   public required List<ChunkChoice> Choices { get; init; }
 
-    // Only present on the final chunk
-    [JsonPropertyName("usage")]
-    public UsageInfo? Usage { get; set; }
+   [JsonPropertyName("usage")]
+   public UsageInfo? Usage { get; init; }
 }
 
-public sealed class ChatCompletionChunkChoice
+public sealed class ChunkChoice
 {
-    [JsonPropertyName("index")]
-    public required int Index { get; set; }
+   [JsonPropertyName("index")]
+   public int Index { get; init; }
 
-    [JsonPropertyName("delta")]
-    public required MessageDelta Delta { get; set; }
+   [JsonPropertyName("delta")]
+   public required ChunkDelta Delta { get; init; }
 
-    // null on all but the final chunk: "stop","length","model_length","error","tool_calls"
-    [JsonPropertyName("finish_reason")]
-    public string? FinishReason { get; set; }
-
-    [JsonPropertyName("logprobs")]
-    public JsonNode? Logprobs { get; set; }
+   [JsonPropertyName("finish_reason")]
+   public string? FinishReason { get; init; } // "stop" | "length" | "tool_calls" | "error" | null
 }
 
-public sealed class MessageDelta
+public sealed class ChunkDelta
 {
-    // Only in the first chunk
-    [JsonPropertyName("role")]
-    public string? Role { get; set; }
+   [JsonPropertyName("role")]
+   public string? Role { get; init; }
 
-    // string, ContentChunk[], or absent
-    [JsonPropertyName("content")]
-    public JsonNode? Content { get; set; }
+   // string for text; array of content parts for multi-modal; null on tool-call-only turns
+   [JsonPropertyName("content")]
+   public JsonNode? Content { get; init; }
 
-    [JsonPropertyName("tool_calls")]
-    public ToolCallDelta[]? ToolCalls { get; set; }
+   [JsonPropertyName("tool_calls")]
+   public List<ChunkToolCall>? ToolCalls { get; init; }
 }
 
-// Streaming tool-call fragment. Multi-chunk tool calls are reassembled by Index;
-// Id/Function.Name typically arrive on the first fragment, with Function.Arguments
-// streamed across subsequent fragments and concatenated by the consumer.
-public sealed class ToolCallDelta
+public sealed class ChunkToolCall
 {
-    [JsonPropertyName("index")]
-    public int? Index { get; set; }
+   [JsonPropertyName("id")]
+   public string? Id { get; init; }
 
-    [JsonPropertyName("id")]
-    public string? Id { get; set; }
+   [JsonPropertyName("type")]
+   public string? Type { get; init; }
 
-    [JsonPropertyName("type")]
-    public string? Type { get; set; }
-
-    [JsonPropertyName("function")]
-    public FunctionCallDelta? Function { get; set; }
+   [JsonPropertyName("function")]
+   public ChunkToolCallFunction? Function { get; init; }
 }
 
-public sealed class FunctionCallDelta
+public sealed class ChunkToolCallFunction
 {
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
+   [JsonPropertyName("name")]
+   public string? Name { get; init; }
 
-    // Partial JSON-encoded arguments fragment; concatenate across deltas with the
-    // same Index to reconstruct the full arguments string.
-    [JsonPropertyName("arguments")]
-    public string? Arguments { get; set; }
+   // Streamed in fragments — accumulate across chunks before parsing
+   [JsonPropertyName("arguments")]
+   public string? Arguments { get; init; }
 }

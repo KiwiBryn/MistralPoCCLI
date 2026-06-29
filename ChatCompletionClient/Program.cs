@@ -7,6 +7,7 @@ using ChatCompletionClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MistralAI.Chat;
 
 // Host.CreateApplicationBuilder already loads appsettings.json (from the content
 // root), environment variables, and command-line args. Pin ContentRootPath to the
@@ -71,22 +72,22 @@ while (!ct.IsCancellationRequested)
 
     messages.Add(new UserMessage { Content = JsonValue.Create(userInput)! });
 
-    var request = new ChatCompletionRequest
-    {
-        Model = settings.ModelName,
-        Messages = [.. messages]
-    };
-
     try
     {
         if (command == "streaming")
         {
+            var request = new ChatCompletionRequest
+            {
+               Model = settings.ModelName,
+               Messages = [.. messages]
+            };
+
             var buffer = new StringBuilder();
             var prefixWritten = false;
 
             await foreach (var chunk in client.StreamAsync(request, ct))
             {
-                if (chunk.Choices.Length == 0) continue;
+                if (chunk.Choices.Count == 0) continue;
 
                 var text = ExtractText(chunk.Choices[0].Delta.Content);
                 if (text.Length == 0) continue;
@@ -106,6 +107,12 @@ while (!ct.IsCancellationRequested)
         }
         else  // buffered
         {
+            var request = new ChatCompletionRequest
+            {
+               Model = settings.ModelName,
+               Messages = [.. messages]
+            };
+
             var response = await client.CompleteAsync(request, ct);
             var content = response.Choices[0].Message.Content;
             var text = ExtractText(content);
