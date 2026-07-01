@@ -3,9 +3,6 @@
 // Endpoint: POST /v1/chat/completions (stream: true)
 // Documentation: https://docs.mistral.ai/api/endpoint/chat
 
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
-
 namespace MistralAI.Chat.Streaming;
 
 // Each SSE data: line deserialises to one of these.

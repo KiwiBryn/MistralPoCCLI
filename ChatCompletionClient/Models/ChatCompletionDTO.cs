@@ -3,15 +3,7 @@
 // Endpoint: POST /v1/chat/completions
 // Documentation: https://docs.mistral.ai/api/endpoint/chat
 
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
-
 namespace MistralAI.Chat;
-
-// ---------------------------------------------------------------------------
-// Request
-// ---------------------------------------------------------------------------
 
 public sealed class ChatCompletionRequest
 {

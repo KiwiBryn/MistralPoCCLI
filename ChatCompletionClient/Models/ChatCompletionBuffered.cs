@@ -3,9 +3,6 @@
 // Endpoint: POST /v1/chat/completions (stream: false)
 // Documentation: https://docs.mistral.ai/api/endpoint/chat
 
-using System.Text.Json.Serialization;
-
-
 namespace MistralAI.Chat.Sync;
 
 public sealed class ChatCompletionResponse
