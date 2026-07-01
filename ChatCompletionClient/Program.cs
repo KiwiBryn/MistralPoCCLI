@@ -1,12 +1,6 @@
 // Copyright(c) June 2026, devMobile Software
 
-using System.Text;
-using System.Text.Json.Nodes;
-
-using ChatCompletionClient;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using devMobile.ChatCompletionClient;
 using MistralAI.Chat;
 
 // Host.CreateApplicationBuilder already loads appsettings.json (from the content
@@ -33,7 +27,11 @@ if (string.IsNullOrWhiteSpace(settings.BaseUrl))
 if (string.IsNullOrWhiteSpace(settings.ModelName))
    throw new InvalidOperationException("ApplicationSettings:ModelName is missing.");
 
-builder.Services.AddMistralChatClient(settings.BaseUrl, settings.ApiKey);
+builder.Services.AddMistralChatClient(options =>
+{
+   options.BaseUrl = settings.BaseUrl;
+   options.ApiKey = settings.ApiKey;
+});
 
 using var host = builder.Build();
 
@@ -102,15 +100,18 @@ while (!ct.IsCancellationRequested)
       catch (MistralApiException ex)
       {
          Console.WriteLine($"\n  [API error {(int)ex.StatusCode}: {ex.ErrorMessage ?? ex.ResponseBody}]");
+         RollbackLastUserTurn(messages);
       }
       catch (OperationCanceledException)
       {
          Console.WriteLine("\n  [Cancelled]");
+         RollbackLastUserTurn(messages);
          break;
       }
       catch (Exception ex)
       {
          Console.WriteLine($"\n  [Error: {ex.Message}]");
+         RollbackLastUserTurn(messages);
       }
       continue;
    }
@@ -217,3 +218,9 @@ static string ExtractText(JsonNode? content)
    return string.Empty;
 }
 
+
+static void RollbackLastUserTurn(List<ChatMessage> messages)
+{
+   if (messages.Count > 0 && messages[^1] is UserMessage)
+      messages.RemoveAt(messages.Count - 1);
+}
