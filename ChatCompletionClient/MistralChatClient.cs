@@ -1,20 +1,10 @@
 // Copyright(c) June 2026, devMobile Software
-
-using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
-using Microsoft.Extensions.DependencyInjection;
-
 using MistralAI.Chat;
 using MistralAI.Chat.Streaming;
 using MistralAI.Chat.Sync;
 
-namespace ChatCompletionClient;
+namespace devMobile.ChatCompletionClient;
+
 
 public interface IMistralChatClient
 {
@@ -249,10 +239,10 @@ public sealed class MistralApiException : Exception
 
 public sealed class MistralChatClientOptions
 {
-   public required string BaseUrl { get; init; }
-   public required string ApiKey { get; init; }
-   public TimeSpan? RequestTimeout { get; init; }
-   public string? UserAgent { get; init; }
+   public string BaseUrl { get; set; } = string.Empty;
+   public string ApiKey { get; set; } = string.Empty;
+   public TimeSpan? RequestTimeout { get; set; }
+   public string? UserAgent { get; set; }
 }
 
 public static class MistralChatClientExtensions
@@ -261,29 +251,42 @@ public static class MistralChatClientExtensions
    /// Registers IMistralChatClient and a named HttpClient pre-configured with the Mistral base URL and bearer token.
    /// </summary>
    /// <example>
-   /// builder.Services.AddMistralChatClient("https://api.mistral.ai/v1/", configuration["Mistral:ApiKey"]!);
+   /// builder.Services.AddMistralChatClient(opts =>
+   /// {
+   ///    opts.BaseUrl = "https://api.mistral.ai/v1/";
+   ///    opts.ApiKey  = configuration["Mistral:ApiKey"]!;
+   /// });
    /// </example>
    public static IHttpClientBuilder AddMistralChatClient(
        this IServiceCollection services,
        Action<MistralChatClientOptions> configure)
    {
+      ArgumentNullException.ThrowIfNull(configure);
+
+      var options = new MistralChatClientOptions();
+      configure(options);
+
+      ArgumentException.ThrowIfNullOrWhiteSpace(options.BaseUrl);
+      ArgumentException.ThrowIfNullOrWhiteSpace(options.ApiKey);
+
+      var normalizedBase = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
+
       services.AddSingleton<IMistralChatClient, MistralChatClient>();
 
-      return (IHttpClientBuilder)services.AddHttpClient(MistralChatClient.HttpClientName, client =>
+      var httpBuilder = services.AddHttpClient(MistralChatClient.HttpClientName, client =>
       {
-         var options = new MistralChatClientOptions();
-         configure(options);
-
-         client.BaseAddress = new Uri(options.BaseUrl);
+         client.BaseAddress = new Uri(normalizedBase);
          client.DefaultRequestHeaders.Authorization =
              new AuthenticationHeaderValue("Bearer", options.ApiKey);
 
          if (options.RequestTimeout is { } timeout)
             client.Timeout = timeout;
 
-         // TODO: set User-Agent, other headers ...
-      })
-      .AddStandardResilienceHandler(opts =>
+         if (!string.IsNullOrWhiteSpace(options.UserAgent))
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(options.UserAgent);
+      });
+
+      httpBuilder.AddStandardResilienceHandler(opts =>
       {
          // Honour Retry-After on 429 + retry transient 5xx
          opts.Retry.ShouldHandle = static args =>
@@ -291,5 +294,7 @@ public static class MistralChatClientExtensions
                args.Outcome.Result is { StatusCode: HttpStatusCode.TooManyRequests }
                || (args.Outcome.Result is { } r && (int)r.StatusCode >= 500));
       });
+
+      return httpBuilder;
    }
 }
