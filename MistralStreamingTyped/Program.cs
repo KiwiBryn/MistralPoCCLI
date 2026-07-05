@@ -39,12 +39,21 @@ var content = Console.ReadLine();
 
 while (!string.IsNullOrWhiteSpace(content))
 {
+   Console.Write("Document URL: ");
+   string url = Console.ReadLine() ?? "";
+
+   UserMessage userMessage = url.Length == 0
+      ? UserMessage.FromText(content)
+      : UserMessage.FromParts(
+           new DocumentUrlPart { DocumentUrl = url },
+           new TextPart { Text = content });
+
    var request = new ChatCompletionRequest
    {
       Model = settings.ModelName,
       Messages =
       [
-         new UserMessage { Content = content }
+         userMessage,
       ],
       Stream = true,
    };
