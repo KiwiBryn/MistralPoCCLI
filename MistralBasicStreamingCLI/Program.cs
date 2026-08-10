@@ -17,16 +17,6 @@ ArgumentException.ThrowIfNullOrWhiteSpace(settings.ApiKey, nameof(settings.ApiKe
 ArgumentException.ThrowIfNullOrWhiteSpace(settings.BaseUrl, nameof(settings.BaseUrl));
 ArgumentException.ThrowIfNullOrWhiteSpace(settings.ModelName, nameof(settings.ModelName));
 
-Console.WriteLine("################");
-Console.WriteLine("   ##      ##   ");
-Console.WriteLine("   ##      ##   ");
-Console.WriteLine("     ##  ##     ");
-Console.WriteLine("   ##########   ");
-Console.WriteLine("   ##  ##  ##   ");
-Console.WriteLine(" ####  ##  #### ");
-Console.WriteLine("################");
-
-
 // Create HttpClient with required headers.
 using HttpClient httpClient = new()
 {
@@ -54,11 +44,22 @@ Console.CancelKeyPress += (_, e) =>
 var jsonSerializerOptions = new JsonSerializerOptions()
 {
    // PropertyNamingPolicy removed - [JsonPropertyName] attributes on model handle wire names
-   WriteIndented           = false,
-   DefaultIgnoreCondition  = JsonIgnoreCondition.WhenWritingNull,
-   AllowTrailingCommas     = false,
-   ReadCommentHandling     = JsonCommentHandling.Disallow,
-   UnmappedMemberHandling  = JsonUnmappedMemberHandling.Skip,
+   WriteIndented = false,
+   DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+   AllowTrailingCommas = false,
+   ReadCommentHandling = JsonCommentHandling.Disallow,
+   UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
+};
+
+// Ctrl+C cancels the current request and returns to the prompt; second Ctrl+C exits the process.
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+   if (!cts.IsCancellationRequested)
+   {
+      e.Cancel = true;
+      cts.Cancel();
+   }
 };
 
 while (!cts.IsCancellationRequested)
